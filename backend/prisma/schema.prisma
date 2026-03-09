@@ -1,0 +1,41 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ── Historical anomaly log (persisted from engine detections) ───────────────
+model AnomalyLog {
+  id           String   @id @default(uuid())
+  timestamp    DateTime @default(now())
+  asset        String
+  buyEx        String
+  sellEx       String
+  spread       Float
+  severity     String
+  netProfit    Float?
+  estimatedGas Float?
+
+  @@index([timestamp])
+  @@index([asset])
+}
+
+// ── Trade execution records ─────────────────────────────────────────────────
+model TradeExecution {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  botName   String
+  pair      String
+  profit    Float
+  status    String   // SUCCESS | FAILED
+  txHash    String?
+
+  @@index([timestamp])
+  @@index([status])
+}

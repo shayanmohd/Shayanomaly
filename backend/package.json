@@ -1,0 +1,37 @@
+{
+  "name": "shayanomaly-backend",
+  "version": "1.0.0",
+  "description": "Shayanomaly arbitrage engine & execution backend",
+  "author": "Mohd Shayan <https://mohdshayan.com>",
+  "main": "dist/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@flashbots/ethers-provider-bundle": "^1.0.0",
+    "@prisma/adapter-better-sqlite3": "^7.4.2",
+    "@prisma/client": "^7.4.2",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/ws": "^8.18.1",
+    "better-sqlite3": "^12.6.2",
+    "ccxt": "^4.5.42",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "ethers": "^6.16.0",
+    "express": "^5.2.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "prisma": "^7.4.2"
+  }
+}

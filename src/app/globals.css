@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #0a0e14;
+  --color-surface: #111923;
+  --color-surface-hover: #1a2433;
+  --color-border: #1e2d3d;
+  --color-foreground: #c5d1de;
+  --color-muted: #6b7d8f;
+  --color-neon-green: #00ff9d;
+  --color-neon-red: #ff3b5c;
+  --color-neon-blue: #00d4ff;
+  --color-neon-yellow: #ffd000;
+  --color-neon-purple: #b36bff;
+  --color-glass: rgba(17, 25, 35, 0.7);
+  --color-glass-border: rgba(30, 45, 61, 0.6);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1e2d3d #0a0e14;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: #0a0e14;
+}
+*::-webkit-scrollbar-thumb {
+  background: #1e2d3d;
+  border-radius: 3px;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+@keyframes pulse-neon {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.glass-panel {
+  background: var(--color-glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-glass-border);
+  border-radius: 8px;
+}
+
+.glow-green {
+  text-shadow: 0 0 8px rgba(0, 255, 157, 0.5);
+}
+
+.glow-red {
+  text-shadow: 0 0 8px rgba(255, 59, 92, 0.5);
+}
+
+.animate-pulse-neon {
+  animation: pulse-neon 2s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.25s ease-out;
+}
