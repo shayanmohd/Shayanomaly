@@ -30,11 +30,9 @@ export default function LiveTicker({ symbol = "ethusdt", selectedAsset = "ETH/US
         <h3 className="text-sm font-semibold text-foreground">
           Live Trades — {selectedAsset}
         </h3>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse-neon" />
-          <span className="text-[10px] text-neon-green font-medium">
-            BINANCE WS
-          </span>
+          <span className="text-[10px] text-neon-green font-medium">LIVE</span>
         </div>
       </div>
 

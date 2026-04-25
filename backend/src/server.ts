@@ -68,8 +68,28 @@ async function ensureFlashbotsReady(): Promise<boolean> {
 
 // ── HTTP Server (health check + CORS + JSON) ───────────────────────────────
 const app = express();
-app.use(cors());
+
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "http://localhost:3000")
+  .split(",")
+  .map((s) => s.trim());
+
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.json());
+
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 10;
+const RATE_WINDOW_MS = 60_000;
+
+function rateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= RATE_LIMIT;
+}
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", uptime: process.uptime() });
@@ -171,6 +191,12 @@ function buildFlashArbTx(
 }
 
 app.post("/api/execute", async (req, res) => {
+  const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
+  if (!rateLimit(clientIp)) {
+    res.status(429).json({ success: false, error: "Rate limit exceeded. Max 10 requests per minute." });
+    return;
+  }
+
   const validation = validateExecutePayload(req.body);
 
   if (!validation.ok) {
@@ -466,9 +492,10 @@ app.get("/api/history/trades", async (_req, res) => {
   }
 });
 
-const HTTP_PORT = 8081;
-app.listen(HTTP_PORT, () => {
-  console.log(`[server] HTTP API on http://localhost:${HTTP_PORT}`);
+const HTTP_PORT = parseInt(process.env.HTTP_PORT || "8081", 10);
+app.listen(HTTP_PORT, "0.0.0.0", () => {
+  console.log(`[server] HTTP API on http://0.0.0.0:${HTTP_PORT}`);
+  console.log(`[server]   CORS origins: ${ALLOWED_ORIGINS.join(", ")}`);
   console.log(`[server]   GET  /health`);
   console.log(`[server]   GET  /api/history/anomalies`);
   console.log(`[server]   GET  /api/history/trades`);
@@ -476,8 +503,8 @@ app.listen(HTTP_PORT, () => {
 });
 
 // ── WebSocket Server ────────────────────────────────────────────────────────
-const WS_PORT = 8080;
-const wss = new WebSocketServer({ port: WS_PORT });
+const WS_PORT = parseInt(process.env.WS_PORT || "8080", 10);
+const wss = new WebSocketServer({ port: WS_PORT, host: "0.0.0.0" });
 
 const clients = new Set<WebSocket>();
 

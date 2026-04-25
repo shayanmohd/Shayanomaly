@@ -23,7 +23,6 @@ import {
   YAxis,
 } from "recharts";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
 interface Bot {
   id: string;
   name: string;
@@ -45,7 +44,6 @@ interface LogEntry {
   level: "info" | "success" | "warn" | "error";
 }
 
-// ─── Seed Data ──────────────────────────────────────────────────────────────
 function randomSparkline(base: number, len = 24) {
   const arr: number[] = [];
   let v = base;
@@ -124,7 +122,6 @@ const SEED_LOGS: LogEntry[] = [
 const STRATEGIES = ["CEX-DEX Triangular", "Flash Loan Arb", "DEX-CEX Spread", "MEV Backrun"] as const;
 const PAIRS = ["ETH/USDT", "BTC/USDT", "ETH/USDC", "WETH/DAI", "BTC/ETH"] as const;
 
-// ─── Page ───────────────────────────────────────────────────────────────────
 export default function BotsPage() {
   const [bots, setBots] = useState<Bot[]>(SEED_BOTS);
   const [logs, setLogs] = useState<LogEntry[]>(SEED_LOGS);
@@ -138,7 +135,6 @@ export default function BotsPage() {
 
   const logContainerRef = useRef<HTMLDivElement>(null);
 
-  // ─── Derived Stats ────────────────────────────────────────────────────
   const stats = useMemo(() => {
     const activeCnt = bots.filter((b) => b.active).length;
     const profit24h = bots.reduce((s, b) => s + b.pnl24h, 0);
@@ -146,13 +142,11 @@ export default function BotsPage() {
     return { activeCnt, profit24h, totalTrades };
   }, [bots]);
 
-  // ─── Toggle bot ─────────────────────────────────────────────────────────
   const toggleBot = useCallback((id: string) => {
     setBots((prev) =>
       prev.map((b) => {
         if (b.id !== id) return b;
         const next = !b.active;
-        // push log entry for toggle
         const ts = new Date().toLocaleTimeString("en-US", { hour12: false });
         setLogs((l) => [
           {
@@ -169,7 +163,6 @@ export default function BotsPage() {
     );
   }, []);
 
-  // ─── Create bot ─────────────────────────────────────────────────────────
   const createBot = useCallback(() => {
     const threshold = parseFloat(newThreshold);
     const execSize = parseFloat(newExecSize);
@@ -207,7 +200,6 @@ export default function BotsPage() {
     setNewExecSize("5000");
   }, [newPair, newStrategy, newThreshold, newExecSize, bots]);
 
-  // ─── Simulated live log injection ───────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(() => {
       const activeBots = bots.filter((b) => b.active);
@@ -240,18 +232,16 @@ export default function BotsPage() {
     return () => clearInterval(interval);
   }, [bots]);
 
-  // Auto-scroll log to top on new entry
   useEffect(() => {
     logContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [logs[0]?.id]);
 
   return (
     <div className="flex-1 overflow-auto p-3 lg:p-6">
-      {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-neon-yellow/10 border border-neon-yellow/20 flex items-center justify-center">
-            <Zap className="w-5 h-5 text-neon-yellow drop-shadow-[0_0_6px_rgba(255,208,0,0.4)]" />
+          <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center">
+            <Zap className="w-5 h-5 text-accent" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-foreground">Bot Control Center</h1>
@@ -260,13 +250,12 @@ export default function BotsPage() {
         </div>
         <button
           onClick={() => setShowCreate((v) => !v)}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[11px] font-semibold bg-neon-yellow/10 text-neon-yellow border border-neon-yellow/20 hover:bg-neon-yellow/20 transition-colors"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[11px] font-semibold bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
         >
           <Plus className="w-3.5 h-3.5" /> Deploy New Bot
         </button>
       </div>
 
-      {/* ── Stats Row (3 widgets) ──────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
         <StatCard
           icon={Power}
@@ -288,10 +277,9 @@ export default function BotsPage() {
         />
       </div>
 
-      {/* ── Create Bot Panel ───────────────────────────────────────────── */}
       {showCreate && (
         <div className="glass-panel p-5 mb-5 animate-fade-in relative overflow-hidden">
-          <div className="absolute -top-24 -right-24 w-48 h-48 bg-neon-yellow/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -top-24 -right-24 w-48 h-48 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
           <h3 className="text-sm font-bold text-foreground mb-4 relative">Deploy New Bot</h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 relative">
@@ -302,7 +290,7 @@ export default function BotsPage() {
                 <select
                   value={newPair}
                   onChange={(e) => setNewPair(e.target.value)}
-                  className="w-full appearance-none bg-background border border-border rounded-md px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-neon-yellow/40 pr-8"
+                  className="w-full appearance-none bg-background border border-border rounded-md px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-accent/40 pr-8"
                 >
                   {PAIRS.map((p) => (
                     <option key={p} value={p}>{p}</option>
@@ -319,7 +307,7 @@ export default function BotsPage() {
                 <select
                   value={newStrategy}
                   onChange={(e) => setNewStrategy(e.target.value)}
-                  className="w-full appearance-none bg-background border border-border rounded-md px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-neon-yellow/40 pr-8"
+                  className="w-full appearance-none bg-background border border-border rounded-md px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-accent/40 pr-8"
                 >
                   {STRATEGIES.map((s) => (
                     <option key={s} value={s}>{s}</option>
@@ -340,7 +328,7 @@ export default function BotsPage() {
                   max="5"
                   value={newThreshold}
                   onChange={(e) => setNewThreshold(e.target.value)}
-                  className="w-full bg-background border border-border rounded-md px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-neon-yellow/40 pr-8"
+                  className="w-full bg-background border border-border rounded-md px-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-accent/40 pr-8"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted pointer-events-none">%</span>
               </div>
@@ -357,7 +345,7 @@ export default function BotsPage() {
                   max="100000"
                   value={newExecSize}
                   onChange={(e) => setNewExecSize(e.target.value)}
-                  className="w-full bg-background border border-border rounded-md pl-6 pr-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-neon-yellow/40"
+                  className="w-full bg-background border border-border rounded-md pl-6 pr-3 py-2.5 text-xs text-foreground focus:outline-none focus:border-accent/40"
                 />
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-muted pointer-events-none">$</span>
               </div>
@@ -367,7 +355,7 @@ export default function BotsPage() {
             <div className="flex items-end gap-2">
               <button
                 onClick={createBot}
-                className="flex-1 px-3 py-2.5 rounded-md text-[11px] font-semibold bg-neon-yellow/10 text-neon-yellow border border-neon-yellow/20 hover:bg-neon-yellow/20 transition-colors"
+                className="flex-1 px-3 py-2.5 rounded-md text-[11px] font-semibold bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
               >
                 Deploy
               </button>
@@ -382,17 +370,15 @@ export default function BotsPage() {
         </div>
       )}
 
-      {/* ── Active Bots Grid ───────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
         {bots.map((bot) => (
           <BotCard key={bot.id} bot={bot} onToggle={toggleBot} />
         ))}
       </div>
 
-      {/* ── Activity Log ───────────────────────────────────────────────── */}
       <div className="glass-panel p-4">
         <div className="flex items-center gap-2 mb-3">
-          <Terminal className="w-4 h-4 text-neon-yellow" />
+          <Terminal className="w-4 h-4 text-accent" />
           <h3 className="text-xs font-bold text-foreground">Bot Activity Log</h3>
           <span className="text-[10px] text-muted ml-auto tabular-nums">{logs.length} entries</span>
         </div>
@@ -426,7 +412,6 @@ export default function BotsPage() {
   );
 }
 
-// ─── Stat Card ──────────────────────────────────────────────────────────────
 const ACCENT_MAP = {
   green:  { bg: "bg-neon-green/10",  border: "border-neon-green/20",  text: "text-neon-green"  },
   red:    { bg: "bg-neon-red/10",    border: "border-neon-red/20",    text: "text-neon-red"    },
@@ -460,33 +445,30 @@ function StatCard({
   );
 }
 
-// ─── Bot Card ───────────────────────────────────────────────────────────────
 function BotCard({ bot, onToggle }: { bot: Bot; onToggle: (id: string) => void }) {
   const sparkData = useMemo(
     () => bot.sparkline.map((v, i) => ({ i, v })),
     [bot.sparkline]
   );
   const trend = bot.sparkline[bot.sparkline.length - 1] >= bot.sparkline[0];
-  const chartColor = trend ? "#00ff9d" : "#ff3b5c";
+  const chartColor = trend ? "#6366f1" : "#ef4444";
   const fillId = `fill-${bot.id}`;
 
   return (
     <div
       className={`glass-panel p-4 relative overflow-hidden transition-all duration-300 ${
         bot.active
-          ? "border-neon-green/20 shadow-[0_0_20px_rgba(0,255,157,0.04)]"
+          ? "border-accent/20"
           : "opacity-50 grayscale-[30%]"
       }`}
     >
-      {/* Live pulse dot */}
       {bot.active && (
         <div className="absolute top-3.5 right-3.5 flex items-center gap-1.5">
-          <span className="text-[9px] text-neon-green/60 font-semibold uppercase">Live</span>
-          <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse-neon" />
+          <span className="text-[9px] text-accent/60 font-semibold uppercase">Live</span>
+          <div className="w-2 h-2 rounded-full bg-accent animate-pulse-neon" />
         </div>
       )}
 
-      {/* Header: pair, strategy, toggle */}
       <div className="flex items-start justify-between mb-2 pr-14">
         <div>
           <h3 className="text-sm font-bold text-foreground leading-tight">{bot.pair}</h3>
@@ -494,7 +476,6 @@ function BotCard({ bot, onToggle }: { bot: Bot; onToggle: (id: string) => void }
         </div>
       </div>
 
-      {/* Trigger threshold */}
       <div className="flex items-center gap-1.5 mb-3">
         <Gauge className="w-3 h-3 text-neon-yellow" />
         <span className="text-[10px] text-muted">Trigger:</span>
@@ -503,7 +484,6 @@ function BotCard({ bot, onToggle }: { bot: Bot; onToggle: (id: string) => void }
         </span>
       </div>
 
-      {/* Sparkline — AreaChart */}
       <div className="h-12 mb-3 -mx-1">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={sparkData}>
@@ -527,7 +507,6 @@ function BotCard({ bot, onToggle }: { bot: Bot; onToggle: (id: string) => void }
         </ResponsiveContainer>
       </div>
 
-      {/* Stats row */}
       <div className="grid grid-cols-3 gap-2 text-center mb-3">
         <div>
           <p className="text-[10px] text-muted">24h PnL</p>
@@ -551,22 +530,21 @@ function BotCard({ bot, onToggle }: { bot: Bot; onToggle: (id: string) => void }
         </div>
       </div>
 
-      {/* iOS-style toggle switch */}
       <div className="flex items-center justify-between pt-2 border-t border-border/50">
-        <span className={`text-[10px] font-semibold ${bot.active ? "text-neon-green" : "text-muted"}`}>
+        <span className={`text-[10px] font-semibold ${bot.active ? "text-accent" : "text-muted"}`}>
           {bot.active ? "RUNNING" : "PAUSED"}
         </span>
         <button
           onClick={() => onToggle(bot.id)}
           aria-label={`Toggle ${bot.name}`}
           className={`relative w-11 h-6 rounded-full transition-colors duration-300 ${
-            bot.active ? "bg-neon-green/30" : "bg-border"
+            bot.active ? "bg-accent/30" : "bg-border"
           }`}
         >
           <div
             className={`absolute top-1 w-4 h-4 rounded-full transition-all duration-300 ${
               bot.active
-                ? "left-6 bg-neon-green shadow-[0_0_10px_rgba(0,255,157,0.6)]"
+                ? "left-6 bg-accent"
                 : "left-1 bg-muted"
             }`}
           />
@@ -576,7 +554,6 @@ function BotCard({ bot, onToggle }: { bot: Bot; onToggle: (id: string) => void }
   );
 }
 
-// ─── Log Level Icon ─────────────────────────────────────────────────────────
 function LogIcon({ level }: { level: LogEntry["level"] }) {
   switch (level) {
     case "success":

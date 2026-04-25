@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { useAccount, useDisconnect } from "wagmi";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
 type Tab = "apis" | "wallet" | "prefs";
 type ExchangeStatus = "idle" | "loading" | "connected";
 
@@ -43,7 +42,6 @@ const TABS: { id: Tab; label: string; icon: typeof Key }[] = [
   { id: "prefs", label: "Trading Preferences", icon: SlidersHorizontal },
 ];
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
 function loadSettings() {
   if (typeof window === "undefined") return null;
   try {
@@ -63,14 +61,12 @@ function defaults() {
   };
 }
 
-// ─── Main Page ──────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("apis");
   const [exchanges, setExchanges] = useState<Record<ExchangeName, ExchangeKeys>>(defaults().exchanges);
   const [prefs, setPrefs] = useState<TradingPrefs>(defaults().prefs);
   const [saved, setSaved] = useState(false);
 
-  // Load from localStorage on mount
   useEffect(() => {
     const s = loadSettings();
     if (s) {
@@ -87,10 +83,9 @@ export default function SettingsPage() {
 
   return (
     <div className="flex-1 overflow-auto p-3 lg:p-6">
-      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-neon-red/10 border border-neon-red/20 flex items-center justify-center">
-          <Settings className="w-5 h-5 text-neon-red drop-shadow-[0_0_6px_rgba(255,59,92,0.4)]" />
+        <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center">
+          <Settings className="w-5 h-5 text-accent" />
         </div>
         <div>
           <h1 className="text-lg font-bold text-foreground">Settings</h1>
@@ -99,7 +94,6 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-4">
-        {/* Vertical Tabs */}
         <nav className="lg:w-48 shrink-0 flex lg:flex-col gap-1">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
@@ -107,20 +101,18 @@ export default function SettingsPage() {
               onClick={() => setTab(id)}
               className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors w-full text-left ${
                 tab === id
-                  ? "bg-neon-red/10 text-neon-red font-semibold shadow-[inset_0_0_12px_rgba(255,59,92,0.06)]"
+                  ? "bg-accent/10 text-accent font-semibold"
                   : "text-muted hover:text-foreground hover:bg-surface-hover"
               }`}
             >
-              <Icon className={`w-4 h-4 shrink-0 ${tab === id ? "drop-shadow-[0_0_4px_rgba(255,59,92,0.5)]" : ""}`} />
+              <Icon className={`w-4 h-4 shrink-0 ${tab === id ? "text-accent" : ""}`} />
               <span className="hidden lg:block">{label}</span>
             </button>
           ))}
         </nav>
 
-        {/* Content Panel */}
         <div className="flex-1 glass-panel p-5 lg:p-6 min-h-[500px] relative overflow-hidden">
-          {/* Ambient glow */}
-          <div className="absolute -top-32 -right-32 w-64 h-64 bg-neon-red/5 rounded-full blur-3xl animate-pulse-neon pointer-events-none" />
+          <div className="absolute -top-32 -right-32 w-64 h-64 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
 
           <div className="relative">
             {tab === "apis" && (
@@ -134,12 +126,11 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Save toast */}
       {saved && (
         <div className="fixed bottom-6 right-6 z-50 animate-fade-in">
-          <div className="bg-surface border border-neon-green/30 rounded-lg px-4 py-2.5 shadow-[0_0_20px_rgba(0,255,157,0.1)] flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-neon-green" />
-            <span className="text-xs text-neon-green font-medium">Settings saved to localStorage</span>
+          <div className="bg-surface border border-accent/30 rounded-lg px-4 py-2.5 shadow-lg flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-accent" />
+            <span className="text-xs text-accent font-medium">Settings saved</span>
           </div>
         </div>
       )}
@@ -147,7 +138,6 @@ export default function SettingsPage() {
   );
 }
 
-// ─── Exchange APIs Tab ──────────────────────────────────────────────────────
 function ExchangeAPIs({
   exchanges,
   setExchanges,
@@ -173,7 +163,6 @@ function ExchangeAPIs({
       ...prev,
       [name]: { ...prev[name], status: "loading" },
     }));
-    // Simulate API verification
     await new Promise((r) => setTimeout(r, 1500));
     setExchanges((prev) => ({
       ...prev,
@@ -213,7 +202,7 @@ function ExchangeAPIs({
                       value={ex.apiKey}
                       onChange={(e) => update(name, "apiKey", e.target.value)}
                       placeholder="Enter API key..."
-                      className="w-full bg-background border border-border rounded-md px-3 py-2 text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:border-neon-red/40 transition-colors pr-9"
+                      className="w-full bg-background border border-border rounded-md px-3 py-2 text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:border-accent/40 transition-colors pr-9"
                     />
                     <button
                       type="button"
@@ -233,7 +222,7 @@ function ExchangeAPIs({
                       value={ex.apiSecret}
                       onChange={(e) => update(name, "apiSecret", e.target.value)}
                       placeholder="Enter API secret..."
-                      className="w-full bg-background border border-border rounded-md px-3 py-2 text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:border-neon-red/40 transition-colors pr-9"
+                      className="w-full bg-background border border-border rounded-md px-3 py-2 text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:border-accent/40 transition-colors pr-9"
                     />
                     <button
                       type="button"
@@ -249,7 +238,7 @@ function ExchangeAPIs({
               <button
                 onClick={() => verify(name)}
                 disabled={ex.status === "loading" || !ex.apiKey || !ex.apiSecret}
-                className="px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-neon-red/10 text-neon-red border border-neon-red/20 hover:bg-neon-red/20"
+                className="px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20"
               >
                 {ex.status === "loading" ? (
                   <span className="flex items-center gap-1.5">
@@ -267,35 +256,29 @@ function ExchangeAPIs({
   );
 }
 
-// ─── Web3 Wallet Tab ────────────────────────────────────────────────────────
 function Web3Wallet() {
   const { address, isConnected, chain } = useAccount();
   const { disconnect } = useDisconnect();
 
   return (
     <div>
-      <h2 className="text-sm font-bold text-foreground mb-1">Web3 Wallet</h2>
-      <p className="text-xs text-muted mb-5">Securely manage your on-chain identity via your browser wallet.</p>
-
       {isConnected && address ? (
         <div className="space-y-4">
-          {/* Connected status */}
-          <div className="bg-neon-green/5 border border-neon-green/20 rounded-lg p-4 flex gap-3">
-            <ShieldCheck className="w-5 h-5 text-neon-green shrink-0 mt-0.5 drop-shadow-[0_0_6px_rgba(0,255,157,0.4)]" />
+          <div className="bg-accent/5 border border-accent/20 rounded-lg p-4 flex gap-3">
+            <ShieldCheck className="w-5 h-5 text-accent shrink-0 mt-0.5 drop-shadow-[0_0_6px_rgba(99,102,241,0.4)]" />
             <div>
-              <p className="text-xs text-neon-green font-semibold mb-0.5">Wallet Connected</p>
+              <p className="text-xs text-accent font-semibold mb-0.5">Wallet Connected</p>
               <p className="text-[11px] text-muted leading-relaxed">
                 Your wallet is securely connected via browser extension. No private keys are stored.
               </p>
             </div>
           </div>
 
-          {/* Wallet details */}
           <div className="bg-surface/50 border border-border rounded-lg p-4 space-y-3">
             <div>
               <label className="text-[10px] text-muted uppercase tracking-wider mb-1.5 block">Connected Address</label>
               <div className="flex items-center gap-2 bg-background border border-border rounded-md px-3 py-2.5">
-                <div className="w-2 h-2 rounded-full bg-neon-green shadow-[0_0_6px_rgba(0,255,157,0.5)]" />
+                <div className="w-2 h-2 rounded-full bg-accent shadow-[0_0_6px_rgba(99,102,241,0.5)]" />
                 <code className="text-xs text-foreground font-mono">{address}</code>
               </div>
             </div>
@@ -303,14 +286,13 @@ function Web3Wallet() {
             <div>
               <label className="text-[10px] text-muted uppercase tracking-wider mb-1.5 block">Active Chain</label>
               <div className="flex items-center gap-2 bg-background border border-border rounded-md px-3 py-2.5">
-                <LinkIcon className="w-3.5 h-3.5 text-neon-blue" />
+                <LinkIcon className="w-3.5 h-3.5 text-accent" />
                 <span className="text-xs text-foreground font-medium">{chain?.name ?? `Chain ${chain?.id}`}</span>
                 <span className="text-[10px] text-muted ml-auto">ID: {chain?.id}</span>
               </div>
             </div>
           </div>
 
-          {/* Disconnect */}
           <button
             onClick={() => disconnect()}
             className="px-4 py-2 rounded-md text-[11px] font-semibold transition-all bg-neon-red/10 text-neon-red border border-neon-red/20 hover:bg-neon-red/20 flex items-center gap-2"
@@ -320,22 +302,21 @@ function Web3Wallet() {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Not connected */}
           <div className="bg-surface/50 border border-border rounded-lg p-8 flex flex-col items-center text-center">
-            <div className="w-12 h-12 rounded-full bg-neon-blue/10 border border-neon-blue/20 flex items-center justify-center mb-4">
-              <Wallet className="w-6 h-6 text-neon-blue drop-shadow-[0_0_6px_rgba(0,212,255,0.4)]" />
+            <div className="w-12 h-12 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center mb-4">
+              <Wallet className="w-6 h-6 text-accent drop-shadow-[0_0_6px_rgba(99,102,241,0.4)]" />
             </div>
             <p className="text-sm text-foreground font-semibold mb-1">No Wallet Connected</p>
             <p className="text-xs text-muted max-w-xs leading-relaxed">
-              Please connect your wallet using the <span className="text-neon-blue font-medium">Connect Wallet</span> button
+              Please connect your wallet using the <span className="text-accent font-medium">Connect Wallet</span> button
               in the header to authenticate and enable on-chain execution.
             </p>
           </div>
 
-          <div className="bg-neon-green/5 border border-neon-green/20 rounded-lg p-3.5 flex gap-3">
-            <ShieldCheck className="w-5 h-5 text-neon-green shrink-0 mt-0.5" />
+          <div className="bg-accent/5 border border-accent/20 rounded-lg p-3.5 flex gap-3">
+            <ShieldCheck className="w-5 h-5 text-accent shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs text-neon-green font-semibold mb-0.5">Secure by Design</p>
+              <p className="text-xs text-accent font-semibold mb-0.5">Secure by Design</p>
               <p className="text-[11px] text-muted leading-relaxed">
                 This app uses WalletConnect &amp; browser-based signing. Your private keys never leave your wallet.
               </p>
@@ -363,11 +344,10 @@ function TradingPreferences({
       <p className="text-xs text-muted mb-5">Configure global parameters for automated and manual trades.</p>
 
       <div className="space-y-6">
-        {/* Slippage */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs text-foreground font-medium">Global Slippage Tolerance</label>
-            <span className="text-xs text-neon-red font-bold tabular-nums">{prefs.slippage.toFixed(1)}%</span>
+            <span className="text-xs text-accent font-bold tabular-nums">{prefs.slippage.toFixed(1)}%</span>
           </div>
           <input
             type="range"
@@ -376,7 +356,7 @@ function TradingPreferences({
             step={0.1}
             value={prefs.slippage}
             onChange={(e) => setPrefs((p) => ({ ...p, slippage: parseFloat(e.target.value) }))}
-            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-border accent-neon-red"
+            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-border accent-accent"
           />
           <div className="flex justify-between text-[10px] text-muted mt-1">
             <span>0.1%</span>
@@ -384,11 +364,10 @@ function TradingPreferences({
           </div>
         </div>
 
-        {/* Max Gas */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs text-foreground font-medium">Max Gas Fee</label>
-            <span className="text-xs text-neon-red font-bold tabular-nums">{prefs.maxGas} gwei</span>
+            <span className="text-xs text-accent font-bold tabular-nums">{prefs.maxGas} gwei</span>
           </div>
           <input
             type="range"
@@ -397,7 +376,7 @@ function TradingPreferences({
             step={1}
             value={prefs.maxGas}
             onChange={(e) => setPrefs((p) => ({ ...p, maxGas: parseInt(e.target.value) }))}
-            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-border accent-neon-red"
+            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-border accent-accent"
           />
           <div className="flex justify-between text-[10px] text-muted mt-1">
             <span>5 gwei</span>
@@ -405,11 +384,10 @@ function TradingPreferences({
           </div>
         </div>
 
-        {/* Trade Size */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs text-foreground font-medium">Default Trade Size</label>
-            <span className="text-xs text-neon-red font-bold tabular-nums">${prefs.tradeSize.toLocaleString()}</span>
+            <span className="text-xs text-accent font-bold tabular-nums">${prefs.tradeSize.toLocaleString()}</span>
           </div>
           <input
             type="range"
@@ -418,7 +396,7 @@ function TradingPreferences({
             step={100}
             value={prefs.tradeSize}
             onChange={(e) => setPrefs((p) => ({ ...p, tradeSize: parseInt(e.target.value) }))}
-            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-border accent-neon-red"
+            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-border accent-accent"
           />
           <div className="flex justify-between text-[10px] text-muted mt-1">
             <span>$100</span>
@@ -428,7 +406,7 @@ function TradingPreferences({
 
         <button
           onClick={onSave}
-          className="px-4 py-2 rounded-md text-[11px] font-semibold transition-all bg-neon-red/10 text-neon-red border border-neon-red/20 hover:bg-neon-red/20 flex items-center gap-2"
+          className="px-4 py-2 rounded-md text-[11px] font-semibold transition-all bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 flex items-center gap-2"
         >
           <Save className="w-3.5 h-3.5" /> Save Preferences
         </button>

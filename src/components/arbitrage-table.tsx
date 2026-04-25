@@ -13,7 +13,7 @@ interface ArbitrageTableProps {
   onRowClick?: (asset: string) => void;
 }
 
-const EXECUTE_API = "http://localhost:8081/api/execute";
+const EXECUTE_API = "/api/execute";
 
 export default function ArbitrageTable({
   opportunities,
@@ -63,7 +63,7 @@ export default function ArbitrageTable({
     <div className="glass-panel p-4 h-full flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Radar className="w-4 h-4 text-neon-purple" />
+          <Radar className="w-4 h-4 text-accent" />
           <h3 className="text-sm font-semibold text-foreground">
             Arbitrage Scanner
           </h3>
@@ -110,7 +110,7 @@ export default function ArbitrageTable({
                   onClick={() => onRowClick?.(opp.asset)}
                   className={`border-b border-border/50 transition-colors cursor-pointer ${
                     isSelected
-                      ? "bg-neon-green/5 hover:bg-neon-green/10"
+                      ? "bg-accent/5 hover:bg-accent/10"
                       : "hover:bg-surface-hover"
                   }`}
                 >
@@ -151,7 +151,7 @@ export default function ArbitrageTable({
                           : btnState === "error"
                           ? "bg-neon-red/20 text-neon-red border border-neon-red/40"
                           : isHot
-                          ? "bg-neon-green/15 text-neon-green hover:bg-neon-green/25 border border-neon-green/30"
+                          ? "bg-accent/15 text-accent hover:bg-accent/25 border border-accent/30"
                           : "bg-surface-hover text-muted hover:text-foreground border border-border"
                       }`}
                     >

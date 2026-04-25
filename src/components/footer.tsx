@@ -16,7 +16,7 @@ export default function Footer() {
           href="https://mohdshayan.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-neon-green hover:underline"
+          className="text-accent hover:underline"
         >
           Mohd Shayan
         </a>

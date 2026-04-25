@@ -5,9 +5,6 @@ import { Terminal, Wifi, WifiOff, ArrowUpDown } from "lucide-react";
 import { useBinanceWs } from "@/hooks/use-binance-ws";
 import type { LiveTrade } from "@/hooks/use-binance-ws";
 
-/* ═══════════════════════════════════════════════════════════
-   Mock Order Book Generator
-   ═══════════════════════════════════════════════════════════ */
 interface BookLevel { price: number; size: number; total: number }
 
 function generateBook(mid: number): { asks: BookLevel[]; bids: BookLevel[] } {
@@ -31,9 +28,6 @@ function generateBook(mid: number): { asks: BookLevel[]; bids: BookLevel[] } {
   return { asks: asks.reverse(), bids };
 }
 
-/* ═══════════════════════════════════════════════════════════
-   Helpers
-   ═══════════════════════════════════════════════════════════ */
 function fmtTime(ts: number): string {
   return new Date(ts).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
@@ -42,14 +36,9 @@ function fmtPrice(n: number): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-/* ═══════════════════════════════════════════════════════════
-   Page
-   ═══════════════════════════════════════════════════════════ */
 export default function TerminalPage() {
-  /* ── live data ──────────────────────────────────────────── */
   const { trades, lastPrice, connected } = useBinanceWs("ethusdt");
 
-  /* ── order book (regenerate on price change, throttled) ── */
   const midPrice = lastPrice || 3845.0;
   const bookRef = useRef(generateBook(midPrice));
   const lastGenRef = useRef(0);
@@ -65,7 +54,6 @@ export default function TerminalPage() {
   const { asks, bids } = bookRef.current;
   const maxTotal = Math.max(asks[0]?.total ?? 1, bids[bids.length - 1]?.total ?? 1);
 
-  /* ── execution form state ───────────────────────────────── */
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [amount, setAmount] = useState("");
   const [priceLimit, setPriceLimit] = useState("");
@@ -75,7 +63,6 @@ export default function TerminalPage() {
     setAmount((BALANCE * pct).toFixed(4));
   }, []);
 
-  /* ── tape data (live trades or mock fallback) ───────────── */
   const [mockTape, setMockTape] = useState<LiveTrade[]>([]);
   const mockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -84,7 +71,6 @@ export default function TerminalPage() {
       if (mockIntervalRef.current) { clearInterval(mockIntervalRef.current); mockIntervalRef.current = null; }
       return;
     }
-    // generate mock tape if WS silent
     if (!mockIntervalRef.current) {
       mockIntervalRef.current = setInterval(() => {
         setMockTape((prev) => {
@@ -104,7 +90,6 @@ export default function TerminalPage() {
 
   const tape = trades.length > 0 ? trades : mockTape;
 
-  /* ── submit handler (simulated) ─────────────────────────── */
   const [submitFlash, setSubmitFlash] = useState(false);
   const handleSubmit = useCallback(() => {
     if (!amount || parseFloat(amount) <= 0) return;
@@ -112,13 +97,11 @@ export default function TerminalPage() {
     setTimeout(() => setSubmitFlash(false), 600);
   }, [amount]);
 
-  /* ═══════════════════════════════════════════════════════ */
   return (
     <div className="flex-1 flex flex-col overflow-hidden font-mono">
-      {/* ── Top Bar ───────────────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border">
         <div className="flex items-center gap-2.5">
-          <Terminal className="w-4 h-4 text-neon-purple drop-shadow-[0_0_6px_rgba(179,107,255,0.5)]" />
+          <Terminal className="w-4 h-4 text-accent" />
           <span className="text-sm font-bold text-foreground">ETH / USDT</span>
           <span className={`text-sm font-bold tabular-nums ${lastPrice ? "text-neon-green" : "text-muted"}`}>
             {lastPrice ? fmtPrice(lastPrice) : "—"}
@@ -130,18 +113,12 @@ export default function TerminalPage() {
         </div>
       </div>
 
-      {/* ── Split Panes ───────────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden">
-
-        {/* ─── LEFT: Order Book (60%) ─────────────────────── */}
         <div className="w-[60%] border-r border-border flex flex-col overflow-hidden">
-          {/* header */}
           <div className="px-3 py-2 border-b border-border flex items-center gap-2 text-[10px] text-muted font-semibold uppercase tracking-wider">
             <ArrowUpDown className="w-3 h-3" />
             Live Order Book
           </div>
-
-          {/* column headers */}
           <div className="grid grid-cols-3 px-3 py-1.5 text-[10px] text-muted font-medium border-b border-border/50">
             <span>Price (USDT)</span>
             <span className="text-right">Size (ETH)</span>
@@ -149,7 +126,6 @@ export default function TerminalPage() {
           </div>
 
           <div className="flex-1 overflow-auto">
-            {/* asks (red, reversed so highest at top) */}
             <div className="flex flex-col">
               {asks.map((lvl, i) => {
                 const depthPct = (lvl.total / maxTotal) * 100;
@@ -164,7 +140,6 @@ export default function TerminalPage() {
               })}
             </div>
 
-            {/* spread row */}
             <div className="grid grid-cols-3 px-3 py-2 border-y border-border/60 bg-surface">
               <span className="text-xs font-bold text-foreground tabular-nums">
                 {fmtPrice(midPrice)}
@@ -174,7 +149,6 @@ export default function TerminalPage() {
               </span>
             </div>
 
-            {/* bids (green) */}
             <div className="flex flex-col">
               {bids.map((lvl, i) => {
                 const depthPct = (lvl.total / maxTotal) * 100;
@@ -191,15 +165,13 @@ export default function TerminalPage() {
           </div>
         </div>
 
-        {/* ─── RIGHT: Execution Panel (40%) ───────────────── */}
         <div className="w-[40%] flex flex-col overflow-auto p-4 gap-4">
-          {/* buy / sell toggle */}
           <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-background border border-border">
             <button
               onClick={() => setSide("buy")}
               className={`py-2.5 rounded-md text-xs font-bold tracking-wide transition-all ${
                 side === "buy"
-                  ? "bg-neon-green/15 text-neon-green border border-neon-green/30 shadow-[0_0_12px_rgba(0,255,157,0.15)]"
+                  ? "bg-accent/15 text-accent border border-accent/30"
                   : "text-muted hover:text-foreground"
               }`}
             >
@@ -209,7 +181,7 @@ export default function TerminalPage() {
               onClick={() => setSide("sell")}
               className={`py-2.5 rounded-md text-xs font-bold tracking-wide transition-all ${
                 side === "sell"
-                  ? "bg-neon-red/15 text-neon-red border border-neon-red/30 shadow-[0_0_12px_rgba(255,59,92,0.15)]"
+                  ? "bg-neon-red/15 text-neon-red border border-neon-red/30"
                   : "text-muted hover:text-foreground"
               }`}
             >
@@ -217,13 +189,11 @@ export default function TerminalPage() {
             </button>
           </div>
 
-          {/* balance */}
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted">Available Balance</span>
             <span className="text-foreground font-semibold tabular-nums">{BALANCE.toFixed(4)} ETH</span>
           </div>
 
-          {/* amount */}
           <div>
             <label className="block text-[10px] text-muted font-medium uppercase tracking-wider mb-1.5">Amount (ETH)</label>
             <input
@@ -233,7 +203,7 @@ export default function TerminalPage() {
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.0000"
-              className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground tabular-nums placeholder:text-muted/40 focus:outline-none focus:border-neon-purple/50 transition-colors"
+              className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground tabular-nums placeholder:text-muted/40 focus:outline-none focus:border-accent/50 transition-colors"
             />
             {/* preset buttons */}
             <div className="grid grid-cols-4 gap-1.5 mt-2">
@@ -241,7 +211,7 @@ export default function TerminalPage() {
                 <button
                   key={pct}
                   onClick={() => setPercent(pct)}
-                  className="py-1.5 rounded text-[10px] font-bold text-muted bg-background border border-border hover:border-neon-purple/40 hover:text-foreground transition-colors"
+                  className="py-1.5 rounded text-[10px] font-bold text-muted bg-background border border-border hover:border-accent/40 hover:text-foreground transition-colors"
                 >
                   {pct === 1 ? "MAX" : `${pct * 100}%`}
                 </button>
@@ -249,7 +219,6 @@ export default function TerminalPage() {
             </div>
           </div>
 
-          {/* price limit */}
           <div>
             <label className="block text-[10px] text-muted font-medium uppercase tracking-wider mb-1.5">Price Limit (USDT)</label>
             <input
@@ -259,11 +228,10 @@ export default function TerminalPage() {
               value={priceLimit}
               onChange={(e) => setPriceLimit(e.target.value)}
               placeholder={midPrice ? fmtPrice(midPrice) : "0.00"}
-              className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground tabular-nums placeholder:text-muted/40 focus:outline-none focus:border-neon-purple/50 transition-colors"
+              className="w-full px-3 py-2.5 rounded-md bg-background border border-border text-sm text-foreground tabular-nums placeholder:text-muted/40 focus:outline-none focus:border-accent/50 transition-colors"
             />
           </div>
 
-          {/* order summary */}
           <div className="glass-panel p-3 text-xs space-y-1.5">
             <div className="flex justify-between">
               <span className="text-muted">Side</span>
@@ -285,14 +253,13 @@ export default function TerminalPage() {
             </div>
           </div>
 
-          {/* submit button */}
           <button
             onClick={handleSubmit}
             disabled={!amount || parseFloat(amount) <= 0}
             className={`w-full py-4 rounded-lg text-sm font-black uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
               side === "buy"
-                ? "bg-neon-green/20 text-neon-green border border-neon-green/30 hover:bg-neon-green/30 hover:shadow-[0_0_24px_rgba(0,255,157,0.2)]"
-                : "bg-neon-red/20 text-neon-red border border-neon-red/30 hover:bg-neon-red/30 hover:shadow-[0_0_24px_rgba(255,59,92,0.2)]"
+                ? "bg-neon-green/20 text-neon-green border border-neon-green/30 hover:bg-neon-green/30"
+                : "bg-neon-red/20 text-neon-red border border-neon-red/30 hover:bg-neon-red/30"
             } ${submitFlash ? "scale-[0.98] brightness-150" : ""}`}
           >
             {submitFlash ? "ORDER SENT" : "SUBMIT ORDER"}
@@ -300,7 +267,6 @@ export default function TerminalPage() {
         </div>
       </div>
 
-      {/* ── Live Tape (Bottom Bar) ────────────────────────── */}
       <div className="border-t border-border h-[120px] flex flex-col shrink-0">
         <div className="px-3 py-1 border-b border-border/50 text-[10px] text-muted font-semibold uppercase tracking-wider flex items-center justify-between">
           <span>Trade Tape — ETH/USDT</span>

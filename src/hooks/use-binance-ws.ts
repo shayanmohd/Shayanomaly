@@ -23,7 +23,6 @@ export function useBinanceWs(symbol: string = "ethusdt") {
   useEffect(() => {
     mountedRef.current = true;
 
-    // Reset state when symbol changes so no stale data flashes
     setTrades([]);
     setLastPrice(0);
     setPrevPrice(0);
@@ -31,7 +30,6 @@ export function useBinanceWs(symbol: string = "ethusdt") {
     lastPriceRef.current = 0;
 
     function connect() {
-      // Prevent duplicate connections
       if (wsRef.current?.readyState === WebSocket.OPEN ||
           wsRef.current?.readyState === WebSocket.CONNECTING) {
         return;
@@ -67,13 +65,11 @@ export function useBinanceWs(symbol: string = "ethusdt") {
             return next.length > 50 ? next.slice(0, 50) : next;
           });
 
-          // Use ref for prev price to avoid stale closure / dependency issues
           setPrevPrice(lastPriceRef.current || trade.price);
           lastPriceRef.current = trade.price;
           setLastPrice(trade.price);
         } catch {
-          // skip malformed messages
-        }
+          }
       };
 
       ws.onclose = () => {
@@ -97,12 +93,12 @@ export function useBinanceWs(symbol: string = "ethusdt") {
         reconnectRef.current = null;
       }
       if (wsRef.current) {
-        wsRef.current.onclose = null; // prevent reconnect on intentional close
+        wsRef.current.onclose = null;
         wsRef.current.close();
         wsRef.current = null;
       }
     };
-  }, [symbol]); // only reconnect if symbol changes
+  }, [symbol]);
 
   return { trades, lastPrice, prevPrice, connected };
 }

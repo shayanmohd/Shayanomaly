@@ -5,7 +5,6 @@ import { Search, Radar, SlidersHorizontal, Wifi, WifiOff, ChevronDown, Loader2 }
 import { useArbitrageWs } from "@/hooks/use-arbitrage-ws";
 import type { ArbitrageOpportunity } from "@/lib/types";
 
-/* ── Backend AnomalyLog shape (matches Prisma schema) ────── */
 interface AnomalyLogRow {
   id: string;
   timestamp: string; // ISO 8601 from Prisma DateTime
@@ -16,12 +15,10 @@ interface AnomalyLogRow {
   severity: string;
 }
 
-/* ── DEX / CEX classification ─────────────────────────────── */
 const DEX_EXCHANGES = new Set(["uniswap", "uniswap_v3", "sushiswap", "curve"]);
 const isCex = (ex: string) => !DEX_EXCHANGES.has(ex.toLowerCase());
 const isDex = (ex: string) => DEX_EXCHANGES.has(ex.toLowerCase());
 
-/* ── Realistic mock fallback ──────────────────────────────── */
 const MOCK_DATA: ArbitrageOpportunity[] = [
   { id: "m1", asset: "ETH/USDT", buyExchange: "binance", buyPrice: 3842.1, sellExchange: "kraken", sellPrice: 3849.7, spreadPercent: 0.198, volume: 42.5, timestamp: Date.now() - 3000 },
   { id: "m2", asset: "BTC/USDT", buyExchange: "coinbase", buyPrice: 97240.0, sellExchange: "binance", sellPrice: 97415.0, spreadPercent: 0.18, volume: 1.2, timestamp: Date.now() - 5000 },
@@ -33,7 +30,6 @@ const MOCK_DATA: ArbitrageOpportunity[] = [
   { id: "m8", asset: "AVAX/USDT", buyExchange: "kraken", buyPrice: 38.14, sellExchange: "coinbase", sellPrice: 38.29, spreadPercent: 0.393, volume: 280, timestamp: Date.now() - 6000 },
 ];
 
-/* ── Map backend AnomalyLog → frontend ArbitrageOpportunity ─ */
 function mapAnomalyToOpportunity(log: AnomalyLogRow): ArbitrageOpportunity {
   return {
     id: log.id,
@@ -48,7 +44,6 @@ function mapAnomalyToOpportunity(log: AnomalyLogRow): ArbitrageOpportunity {
   };
 }
 
-/* ── Helpers ──────────────────────────────────────────────── */
 const GAS_ESTIMATE: Record<string, number> = { cex_cex: 0.0, cex_dex: 4.2, dex_dex: 8.1 };
 
 function estimateGas(buy: string, sell: string): number {
@@ -70,18 +65,15 @@ function fmtTime(ts: number): string {
 
 type ExchangeFilter = "all" | "cex" | "dex";
 
-/* ═══════════════════════════════════════════════════════════ */
 export default function ScannerPage() {
-  /* ── live data ──────────────────────────────────────────── */
   const { opportunities, connected } = useArbitrageWs();
 
-  /* ── historical data ────────────────────────────────────── */
   const [historicalData, setHistoricalData] = useState<ArbitrageOpportunity[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
   const fetchHistory = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:8081/api/history/anomalies");
+      const res = await fetch("/api/history/anomalies");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json() as { ok: boolean; data: AnomalyLogRow[] };
       if (json.ok && Array.isArray(json.data)) {
@@ -96,21 +88,16 @@ export default function ScannerPage() {
 
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
-  /* ── merge live + historical (live wins on id collision) ── */
   const mergedData = useMemo(() => {
     const liveMap = new Map<string, ArbitrageOpportunity>();
     for (const opp of opportunities) liveMap.set(opp.id, opp);
-
-    // Add historical entries that aren't already present as live data
     for (const hist of historicalData) {
       if (!liveMap.has(hist.id)) liveMap.set(hist.id, hist);
     }
 
-    // Sort newest-first
     return Array.from(liveMap.values()).sort((a, b) => b.timestamp - a.timestamp);
   }, [opportunities, historicalData]);
 
-  /* ── fallback: if merged is empty for >4s, show mock data ─ */
   const [useMock, setUseMock] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -127,13 +114,11 @@ export default function ScannerPage() {
 
   const rows = useMock ? MOCK_DATA : mergedData;
 
-  /* ── filter state ───────────────────────────────────────── */
   const [search, setSearch] = useState("");
   const [minSpread, setMinSpread] = useState(0);
   const [exchFilter, setExchFilter] = useState<ExchangeFilter>("all");
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  /* ── filter logic (applied to merged dataset) ───────────── */
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
@@ -145,21 +130,18 @@ export default function ScannerPage() {
     });
   }, [rows, search, minSpread, exchFilter]);
 
-  /* ── stats ──────────────────────────────────────────────── */
   const maxSpread = filtered.length ? Math.max(...filtered.map((r) => r.spreadPercent)) : 0;
   const avgSpread = filtered.length ? filtered.reduce((s, r) => s + r.spreadPercent, 0) / filtered.length : 0;
   const liveCount = opportunities.length;
 
   const EXCH_LABELS: Record<ExchangeFilter, string> = { all: "All Exchanges", cex: "CEX Only", dex: "DEX Only" };
 
-  /* ═══════════════════════════════════════════════════════ */
   return (
     <div className="flex-1 flex flex-col gap-4 p-6 overflow-hidden">
-      {/* ── Header ────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-neon-green/10 border border-neon-green/20 flex items-center justify-center">
-            <Radar className="w-5 h-5 text-neon-green drop-shadow-[0_0_6px_rgba(0,255,157,0.5)]" />
+          <div className="w-10 h-10 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
+            <Radar className="w-5 h-5 text-accent" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-foreground">Arbitrage Scanner</h1>
@@ -190,7 +172,6 @@ export default function ScannerPage() {
         </div>
       </div>
 
-      {/* ── Filter Bar ────────────────────────────────────── */}
       <div className="glass-panel p-3 flex flex-wrap items-center gap-3">
         <SlidersHorizontal className="w-4 h-4 text-muted shrink-0" />
 
@@ -202,7 +183,7 @@ export default function ScannerPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search asset or exchange…"
-            className="w-full pl-8 pr-3 py-1.5 rounded-md bg-background border border-border text-xs text-foreground placeholder:text-muted/60 focus:outline-none focus:border-neon-green/40 transition-colors"
+            className="w-full pl-8 pr-3 py-1.5 rounded-md bg-background border border-border text-xs text-foreground placeholder:text-muted/60 focus:outline-none focus:border-accent/40 transition-colors"
           />
         </div>
 
@@ -216,7 +197,7 @@ export default function ScannerPage() {
             step={0.05}
             value={minSpread}
             onChange={(e) => setMinSpread(Math.max(0, parseFloat(e.target.value) || 0))}
-            className="w-20 px-2 py-1.5 rounded-md bg-background border border-border text-xs text-foreground text-center focus:outline-none focus:border-neon-green/40 transition-colors"
+            className="w-20 px-2 py-1.5 rounded-md bg-background border border-border text-xs text-foreground text-center focus:outline-none focus:border-accent/40 transition-colors"
           />
           {/* slider */}
           <input
@@ -226,7 +207,7 @@ export default function ScannerPage() {
             step={0.05}
             value={minSpread}
             onChange={(e) => setMinSpread(parseFloat(e.target.value))}
-            className="w-24 accent-neon-green h-1 cursor-pointer"
+            className="w-24 accent-accent h-1 cursor-pointer"
           />
         </div>
 
@@ -234,7 +215,7 @@ export default function ScannerPage() {
         <div className="relative">
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-background border border-border text-xs text-foreground hover:border-neon-green/40 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-background border border-border text-xs text-foreground hover:border-accent/40 transition-colors"
           >
             {EXCH_LABELS[exchFilter]}
             <ChevronDown className={`w-3 h-3 text-muted transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
@@ -245,7 +226,7 @@ export default function ScannerPage() {
                 <button
                   key={v}
                   onClick={() => { setExchFilter(v); setDropdownOpen(false); }}
-                  className={`w-full text-left px-3 py-2 text-xs hover:bg-surface-hover transition-colors ${exchFilter === v ? "text-neon-green bg-neon-green/5" : "text-foreground"}`}
+                  className={`w-full text-left px-3 py-2 text-xs hover:bg-surface-hover transition-colors ${exchFilter === v ? "text-accent bg-accent/5" : "text-foreground"}`}
                 >
                   {EXCH_LABELS[v]}
                 </button>
@@ -255,7 +236,6 @@ export default function ScannerPage() {
         </div>
       </div>
 
-      {/* ── Pro Data Table ─────────────────────────────────── */}
       <div className="glass-panel flex-1 overflow-hidden flex flex-col">
         <div className="overflow-auto flex-1">
           <table className="w-full text-xs">
@@ -312,7 +292,7 @@ export default function ScannerPage() {
                       <td className="px-3 py-2 text-right text-neon-green tabular-nums">{r.buyPrice > 0 ? `$${r.buyPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : <span className="text-muted">—</span>}</td>
                       <td className="px-3 py-2 text-right text-neon-red tabular-nums">{r.sellPrice > 0 ? `$${r.sellPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : <span className="text-muted">—</span>}</td>
                       <td className="px-3 py-2 text-right tabular-nums">
-                        <span className={`inline-block px-1.5 py-0.5 rounded font-semibold ${hot ? "bg-neon-green/15 text-neon-green drop-shadow-[0_0_6px_rgba(0,255,157,0.4)]" : warm ? "text-neon-yellow" : "text-muted"}`}>
+                        <span className={`inline-block px-1.5 py-0.5 rounded font-semibold ${hot ? "bg-neon-green/15 text-neon-green" : warm ? "text-neon-yellow" : "text-muted"}`}>
                           {r.spreadPercent.toFixed(3)}%
                         </span>
                       </td>
@@ -338,7 +318,6 @@ export default function ScannerPage() {
   );
 }
 
-/* ── Exchange Badge ───────────────────────────────────────── */
 const EXCH_COLORS: Record<string, string> = {
   binance: "text-neon-yellow",
   kraken: "text-neon-purple",

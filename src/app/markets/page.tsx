@@ -94,7 +94,6 @@ const VOLUME_DATA = [
   { day: "Sun", dex: 10.9, cex: 34.5 },
 ];
 
-// ─── Custom Tooltip ─────────────────────────────────────────────────────────
 function VolumeTooltip({
   active,
   payload,
@@ -119,14 +118,12 @@ function VolumeTooltip({
   );
 }
 
-// ─── Page ───────────────────────────────────────────────────────────────────
 export default function MarketsPage() {
   return (
     <div className="flex-1 overflow-auto p-3 lg:p-6">
-      {/* Header */}
       <div className="flex items-center gap-3 mb-5">
-        <div className="w-10 h-10 rounded-xl bg-neon-blue/10 border border-neon-blue/20 flex items-center justify-center">
-          <Activity className="w-5 h-5 text-neon-blue drop-shadow-[0_0_6px_rgba(0,212,255,0.4)]" />
+        <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center">
+          <BarChart3 className="w-5 h-5 text-accent" />
         </div>
         <div>
           <h1 className="text-lg font-bold text-foreground">Markets</h1>
@@ -134,7 +131,6 @@ export default function MarketsPage() {
         </div>
       </div>
 
-      {/* ── Global Metrics Row ───────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         {METRICS.map((m) => {
           const a = ACCENT[m.accent];
@@ -184,13 +180,11 @@ export default function MarketsPage() {
         })}
       </div>
 
-      {/* ── Gainers / Losers ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
         <MoverList title="Top Gainers (24h)" items={GAINERS} positive />
         <MoverList title="Top Losers (24h)" items={LOSERS} positive={false} />
       </div>
 
-      {/* ── Volume Trend Chart ───────────────────────────────────────── */}
       <div className="glass-panel p-5 relative overflow-hidden">
         <div className="absolute -top-28 -left-28 w-56 h-56 bg-neon-blue/5 rounded-full blur-3xl pointer-events-none" />
         <div className="relative">
@@ -275,7 +269,6 @@ export default function MarketsPage() {
   );
 }
 
-// ─── Mover List Component ───────────────────────────────────────────────────
 function MoverList({
   title,
   items,
