@@ -30,7 +30,9 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # npm 11 generated the lockfile; npm 10 (Node 22) computes a
+          # different ideal tree and fails `npm ci` on nested zod versions.
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
