@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { BINANCE_WS } from "@/lib/exchanges";
 
 export interface LiveTrade {
   price: number;
@@ -20,13 +21,19 @@ export function useBinanceWs(symbol: string = "ethusdt") {
   const lastPriceRef = useRef(0);
   const mountedRef = useRef(true);
 
-  useEffect(() => {
-    mountedRef.current = true;
-
+  // Reset derived stream state when the symbol prop changes (render-time
+  // derivation per react.dev "You Might Not Need an Effect").
+  const [lastSymbol, setLastSymbol] = useState(symbol);
+  if (symbol !== lastSymbol) {
+    setLastSymbol(symbol);
     setTrades([]);
     setLastPrice(0);
     setPrevPrice(0);
     setConnected(false);
+  }
+
+  useEffect(() => {
+    mountedRef.current = true;
     lastPriceRef.current = 0;
 
     function connect() {
@@ -35,9 +42,7 @@ export function useBinanceWs(symbol: string = "ethusdt") {
         return;
       }
 
-      const ws = new WebSocket(
-        `wss://stream.binance.com:9443/ws/${symbol}@trade`
-      );
+      const ws = new WebSocket(`${BINANCE_WS}/ws/${symbol}@trade`);
       wsRef.current = ws;
 
       ws.onopen = () => {

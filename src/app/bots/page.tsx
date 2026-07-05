@@ -5,10 +5,8 @@ import {
   Zap,
   Plus,
   Power,
-  TrendingUp,
   DollarSign,
   Activity,
-  Timer,
   XCircle,
   CheckCircle2,
   AlertTriangle,
@@ -44,11 +42,18 @@ interface LogEntry {
   level: "info" | "success" | "warn" | "error";
 }
 
-function randomSparkline(base: number, len = 24) {
+// Deterministic PRNG so the prerendered HTML and the client render agree
+// (module-scope Math.random() would cause a hydration mismatch).
+function seededSparkline(seed: number, base: number, len = 24) {
+  let s = seed;
+  const rand = () => {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
+  };
   const arr: number[] = [];
   let v = base;
   for (let i = 0; i < len; i++) {
-    v += (Math.random() - 0.46) * base * 0.09;
+    v += (rand() - 0.46) * base * 0.09;
     arr.push(parseFloat(v.toFixed(2)));
   }
   return arr;
@@ -68,7 +73,7 @@ const SEED_BOTS: Bot[] = [
     active: true,
     pnl24h: 1247.83,
     trades: 412,
-    sparkline: randomSparkline(100),
+    sparkline: seededSparkline(11, 100),
   },
   {
     id: "bot-2",
@@ -80,7 +85,7 @@ const SEED_BOTS: Bot[] = [
     active: true,
     pnl24h: 892.41,
     trades: 287,
-    sparkline: randomSparkline(80),
+    sparkline: seededSparkline(23, 80),
   },
   {
     id: "bot-3",
@@ -92,7 +97,7 @@ const SEED_BOTS: Bot[] = [
     active: false,
     pnl24h: -134.20,
     trades: 64,
-    sparkline: randomSparkline(50),
+    sparkline: seededSparkline(37, 50),
   },
   {
     id: "bot-4",
@@ -104,7 +109,7 @@ const SEED_BOTS: Bot[] = [
     active: false,
     pnl24h: 2103.55,
     trades: 831,
-    sparkline: randomSparkline(120),
+    sparkline: seededSparkline(53, 120),
   },
 ];
 
@@ -232,9 +237,10 @@ export default function BotsPage() {
     return () => clearInterval(interval);
   }, [bots]);
 
+  const latestLogId = logs[0]?.id;
   useEffect(() => {
     logContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [logs[0]?.id]);
+  }, [latestLogId]);
 
   return (
     <div className="flex-1 overflow-auto p-3 lg:p-6">
@@ -244,8 +250,13 @@ export default function BotsPage() {
             <Zap className="w-5 h-5 text-accent" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-foreground">Bot Control Center</h1>
-            <p className="text-xs text-muted">Create, monitor & toggle automated arbitrage bots</p>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold text-foreground">Bot Control Center</h1>
+              <span className="text-[9px] font-semibold text-neon-yellow/80 bg-neon-yellow/10 border border-neon-yellow/20 rounded px-1.5 py-px uppercase tracking-wider">
+                simulation
+              </span>
+            </div>
+            <p className="text-xs text-muted">Strategy sandbox — bots, fills &amp; PnL are simulated, no real orders</p>
           </div>
         </div>
         <button

@@ -1,32 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Terminal, Wifi, WifiOff, ArrowUpDown } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Terminal, Wifi, WifiOff, ArrowUpDown, FlaskConical } from "lucide-react";
 import { useBinanceWs } from "@/hooks/use-binance-ws";
-import type { LiveTrade } from "@/hooks/use-binance-ws";
-
-interface BookLevel { price: number; size: number; total: number }
-
-function generateBook(mid: number): { asks: BookLevel[]; bids: BookLevel[] } {
-  const LEVELS = 14;
-  const asks: BookLevel[] = [];
-  const bids: BookLevel[] = [];
-  let askTotal = 0;
-  let bidTotal = 0;
-
-  for (let i = 0; i < LEVELS; i++) {
-    const offset = (i + 1) * (mid * 0.00015 + Math.random() * mid * 0.0001);
-    const askSize = +(1 + Math.random() * 18).toFixed(4);
-    askTotal += askSize;
-    asks.push({ price: +(mid + offset).toFixed(2), size: askSize, total: +askTotal.toFixed(4) });
-
-    const bidSize = +(1 + Math.random() * 18).toFixed(4);
-    bidTotal += bidSize;
-    bids.push({ price: +(mid - offset).toFixed(2), size: bidSize, total: +bidTotal.toFixed(4) });
-  }
-
-  return { asks: asks.reverse(), bids };
-}
+import { useBinanceDepth } from "@/hooks/use-binance-depth";
 
 function fmtTime(ts: number): string {
   return new Date(ts).toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -36,66 +13,58 @@ function fmtPrice(n: number): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+interface PaperOrder {
+  id: number;
+  ts: number;
+  side: "buy" | "sell";
+  amount: number;
+  price: number;
+}
+
+const PAPER_BALANCE_ETH = 12.4821;
+
 export default function TerminalPage() {
   const { trades, lastPrice, connected } = useBinanceWs("ethusdt");
+  const { book, connected: depthConnected } = useBinanceDepth("ethusdt");
 
-  const midPrice = lastPrice || 3845.0;
-  const bookRef = useRef(generateBook(midPrice));
-  const lastGenRef = useRef(0);
+  const midPrice = lastPrice || (book.asks.length && book.bids.length
+    ? (book.asks[book.asks.length - 1].price + book.bids[0].price) / 2
+    : 0);
 
-  useEffect(() => {
-    const now = Date.now();
-    if (now - lastGenRef.current > 400) {
-      bookRef.current = generateBook(midPrice);
-      lastGenRef.current = now;
-    }
-  }, [midPrice]);
-
-  const { asks, bids } = bookRef.current;
-  const maxTotal = Math.max(asks[0]?.total ?? 1, bids[bids.length - 1]?.total ?? 1);
+  const { asks, bids } = book;
+  const maxTotal = Math.max(
+    asks[0]?.total ?? 1,
+    bids[bids.length - 1]?.total ?? 1
+  );
 
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [amount, setAmount] = useState("");
   const [priceLimit, setPriceLimit] = useState("");
-  const BALANCE = 12.4821; // simulated wallet balance
+  const [paperOrders, setPaperOrders] = useState<PaperOrder[]>([]);
 
   const setPercent = useCallback((pct: number) => {
-    setAmount((BALANCE * pct).toFixed(4));
+    setAmount((PAPER_BALANCE_ETH * pct).toFixed(4));
   }, []);
-
-  const [mockTape, setMockTape] = useState<LiveTrade[]>([]);
-  const mockIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (trades.length > 0) {
-      if (mockIntervalRef.current) { clearInterval(mockIntervalRef.current); mockIntervalRef.current = null; }
-      return;
-    }
-    if (!mockIntervalRef.current) {
-      mockIntervalRef.current = setInterval(() => {
-        setMockTape((prev) => {
-          const t: LiveTrade = {
-            price: +(3840 + Math.random() * 12).toFixed(2),
-            quantity: +(0.01 + Math.random() * 4).toFixed(4),
-            time: Date.now(),
-            side: Math.random() > 0.5 ? "buy" : "sell",
-          };
-          const next = [t, ...prev];
-          return next.length > 60 ? next.slice(0, 60) : next;
-        });
-      }, 250);
-    }
-    return () => { if (mockIntervalRef.current) { clearInterval(mockIntervalRef.current); mockIntervalRef.current = null; } };
-  }, [trades.length]);
-
-  const tape = trades.length > 0 ? trades : mockTape;
 
   const [submitFlash, setSubmitFlash] = useState(false);
   const handleSubmit = useCallback(() => {
-    if (!amount || parseFloat(amount) <= 0) return;
+    const qty = parseFloat(amount);
+    if (!qty || qty <= 0 || midPrice <= 0) return;
+    setPaperOrders((prev) => [
+      {
+        id: Date.now(),
+        ts: Date.now(),
+        side,
+        amount: qty,
+        price: parseFloat(priceLimit) || midPrice,
+      },
+      ...prev.slice(0, 19),
+    ]);
     setSubmitFlash(true);
-    setTimeout(() => setSubmitFlash(false), 600);
-  }, [amount]);
+    setTimeout(() => setSubmitFlash(false), 900);
+  }, [amount, midPrice, priceLimit, side]);
+
+  const liveOk = connected || depthConnected;
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden font-mono">
@@ -106,10 +75,14 @@ export default function TerminalPage() {
           <span className={`text-sm font-bold tabular-nums ${lastPrice ? "text-neon-green" : "text-muted"}`}>
             {lastPrice ? fmtPrice(lastPrice) : "—"}
           </span>
+          <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-neon-yellow/80 bg-neon-yellow/10 border border-neon-yellow/20 rounded px-1.5 py-px uppercase tracking-wider">
+            <FlaskConical className="w-2.5 h-2.5" />
+            paper trading
+          </span>
         </div>
-        <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${connected ? "bg-neon-green/10 text-neon-green" : "bg-neon-red/10 text-neon-red"}`}>
-          {connected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-          {connected ? "LIVE" : "MOCK"}
+        <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${liveOk ? "bg-neon-green/10 text-neon-green" : "bg-neon-red/10 text-neon-red"}`}>
+          {liveOk ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+          {liveOk ? "LIVE" : "CONNECTING"}
         </div>
       </div>
 
@@ -117,7 +90,7 @@ export default function TerminalPage() {
         <div className="w-[60%] border-r border-border flex flex-col overflow-hidden">
           <div className="px-3 py-2 border-b border-border flex items-center gap-2 text-[10px] text-muted font-semibold uppercase tracking-wider">
             <ArrowUpDown className="w-3 h-3" />
-            Live Order Book
+            Live Order Book — Binance
           </div>
           <div className="grid grid-cols-3 px-3 py-1.5 text-[10px] text-muted font-medium border-b border-border/50">
             <span>Price (USDT)</span>
@@ -126,42 +99,50 @@ export default function TerminalPage() {
           </div>
 
           <div className="flex-1 overflow-auto">
-            <div className="flex flex-col">
-              {asks.map((lvl, i) => {
-                const depthPct = (lvl.total / maxTotal) * 100;
-                return (
-                  <div key={`a-${i}`} className="relative grid grid-cols-3 px-3 py-[3px] text-xs tabular-nums hover:bg-neon-red/[0.06] transition-colors">
-                    <div className="absolute inset-y-0 right-0 bg-neon-red/[0.07]" style={{ width: `${depthPct}%` }} />
-                    <span className="relative text-neon-red">{fmtPrice(lvl.price)}</span>
-                    <span className="relative text-right text-foreground/80">{lvl.size.toFixed(4)}</span>
-                    <span className="relative text-right text-muted">{lvl.total.toFixed(4)}</span>
-                  </div>
-                );
-              })}
-            </div>
+            {asks.length === 0 && bids.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-xs text-muted">
+                Connecting to depth stream…
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col">
+                  {asks.map((lvl, i) => {
+                    const depthPct = (lvl.total / maxTotal) * 100;
+                    return (
+                      <div key={`a-${i}`} className="relative grid grid-cols-3 px-3 py-[3px] text-xs tabular-nums hover:bg-neon-red/[0.06] transition-colors">
+                        <div className="absolute inset-y-0 right-0 bg-neon-red/[0.07]" style={{ width: `${depthPct}%` }} />
+                        <span className="relative text-neon-red">{fmtPrice(lvl.price)}</span>
+                        <span className="relative text-right text-foreground/80">{lvl.size.toFixed(4)}</span>
+                        <span className="relative text-right text-muted">{lvl.total.toFixed(4)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
 
-            <div className="grid grid-cols-3 px-3 py-2 border-y border-border/60 bg-surface">
-              <span className="text-xs font-bold text-foreground tabular-nums">
-                {fmtPrice(midPrice)}
-              </span>
-              <span className="col-span-2 text-right text-[10px] text-muted">
-                Spread: {asks.length && bids.length ? fmtPrice(asks[asks.length - 1].price - bids[0].price) : "—"}
-              </span>
-            </div>
+                <div className="grid grid-cols-3 px-3 py-2 border-y border-border/60 bg-surface">
+                  <span className="text-xs font-bold text-foreground tabular-nums">
+                    {midPrice > 0 ? fmtPrice(midPrice) : "—"}
+                  </span>
+                  <span className="col-span-2 text-right text-[10px] text-muted">
+                    Spread: {asks.length && bids.length ? fmtPrice(asks[asks.length - 1].price - bids[0].price) : "—"}
+                  </span>
+                </div>
 
-            <div className="flex flex-col">
-              {bids.map((lvl, i) => {
-                const depthPct = (lvl.total / maxTotal) * 100;
-                return (
-                  <div key={`b-${i}`} className="relative grid grid-cols-3 px-3 py-[3px] text-xs tabular-nums hover:bg-neon-green/[0.06] transition-colors">
-                    <div className="absolute inset-y-0 right-0 bg-neon-green/[0.07]" style={{ width: `${depthPct}%` }} />
-                    <span className="relative text-neon-green">{fmtPrice(lvl.price)}</span>
-                    <span className="relative text-right text-foreground/80">{lvl.size.toFixed(4)}</span>
-                    <span className="relative text-right text-muted">{lvl.total.toFixed(4)}</span>
-                  </div>
-                );
-              })}
-            </div>
+                <div className="flex flex-col">
+                  {bids.map((lvl, i) => {
+                    const depthPct = (lvl.total / maxTotal) * 100;
+                    return (
+                      <div key={`b-${i}`} className="relative grid grid-cols-3 px-3 py-[3px] text-xs tabular-nums hover:bg-neon-green/[0.06] transition-colors">
+                        <div className="absolute inset-y-0 right-0 bg-neon-green/[0.07]" style={{ width: `${depthPct}%` }} />
+                        <span className="relative text-neon-green">{fmtPrice(lvl.price)}</span>
+                        <span className="relative text-right text-foreground/80">{lvl.size.toFixed(4)}</span>
+                        <span className="relative text-right text-muted">{lvl.total.toFixed(4)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -190,8 +171,8 @@ export default function TerminalPage() {
           </div>
 
           <div className="flex items-center justify-between text-xs">
-            <span className="text-muted">Available Balance</span>
-            <span className="text-foreground font-semibold tabular-nums">{BALANCE.toFixed(4)} ETH</span>
+            <span className="text-muted">Paper Balance</span>
+            <span className="text-foreground font-semibold tabular-nums">{PAPER_BALANCE_ETH.toFixed(4)} ETH</span>
           </div>
 
           <div>
@@ -246,59 +227,86 @@ export default function TerminalPage() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted">Fee (est.)</span>
+              <span className="text-muted">Fee (est. 0.1%)</span>
               <span className="text-muted tabular-nums">
-                {amount ? `$${(parseFloat(amount) * midPrice * 0.001).toFixed(2)}` : "—"}
+                {amount && midPrice ? `$${(parseFloat(amount) * midPrice * 0.001).toFixed(2)}` : "—"}
               </span>
             </div>
           </div>
 
           <button
             onClick={handleSubmit}
-            disabled={!amount || parseFloat(amount) <= 0}
+            disabled={!amount || parseFloat(amount) <= 0 || midPrice <= 0}
+            title="Paper order — nothing is sent to an exchange"
             className={`w-full py-4 rounded-lg text-sm font-black uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
               side === "buy"
                 ? "bg-neon-green/20 text-neon-green border border-neon-green/30 hover:bg-neon-green/30"
                 : "bg-neon-red/20 text-neon-red border border-neon-red/30 hover:bg-neon-red/30"
             } ${submitFlash ? "scale-[0.98] brightness-150" : ""}`}
           >
-            {submitFlash ? "ORDER SENT" : "SUBMIT ORDER"}
+            {submitFlash ? "PAPER ORDER FILLED" : "SUBMIT PAPER ORDER"}
           </button>
+
+          {paperOrders.length > 0 && (
+            <div className="glass-panel p-3">
+              <p className="text-[10px] text-muted font-semibold uppercase tracking-wider mb-2">
+                Paper Orders (this session)
+              </p>
+              <div className="space-y-1 max-h-32 overflow-auto">
+                {paperOrders.map((o) => (
+                  <div key={o.id} className="flex items-center justify-between text-[11px] tabular-nums">
+                    <span className="text-muted">{fmtTime(o.ts)}</span>
+                    <span className={o.side === "buy" ? "text-neon-green font-bold" : "text-neon-red font-bold"}>
+                      {o.side.toUpperCase()}
+                    </span>
+                    <span className="text-foreground/80">{o.amount.toFixed(4)} ETH</span>
+                    <span className="text-muted">@ {fmtPrice(o.price)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="border-t border-border h-[120px] flex flex-col shrink-0">
         <div className="px-3 py-1 border-b border-border/50 text-[10px] text-muted font-semibold uppercase tracking-wider flex items-center justify-between">
-          <span>Trade Tape — ETH/USDT</span>
-          <span className="tabular-nums text-foreground/50">{tape.length} trades</span>
+          <span>Trade Tape — ETH/USDT (Binance live)</span>
+          <span className="tabular-nums text-foreground/50">{trades.length} trades</span>
         </div>
         <div className="flex-1 overflow-auto">
-          <table className="w-full text-[11px]">
-            <thead className="sticky top-0 z-10 bg-surface">
-              <tr className="text-muted font-medium">
-                <th className="text-left px-3 py-1 w-20">Time</th>
-                <th className="text-right px-3 py-1">Price</th>
-                <th className="text-right px-3 py-1">Size</th>
-                <th className="text-left px-3 py-1 w-12">Side</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tape.slice(0, 40).map((t, i) => (
-                <tr key={`${t.time}-${i}`} className="border-b border-border/20 hover:bg-surface-hover transition-colors">
-                  <td className="px-3 py-0.5 text-muted tabular-nums">{fmtTime(t.time)}</td>
-                  <td className={`px-3 py-0.5 text-right tabular-nums font-medium ${t.side === "buy" ? "text-neon-green" : "text-neon-red"}`}>
-                    {fmtPrice(t.price)}
-                  </td>
-                  <td className="px-3 py-0.5 text-right tabular-nums text-foreground/80">{t.quantity.toFixed(4)}</td>
-                  <td className="px-3 py-0.5">
-                    <span className={`text-[9px] font-bold uppercase ${t.side === "buy" ? "text-neon-green" : "text-neon-red"}`}>
-                      {t.side}
-                    </span>
-                  </td>
+          {trades.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-xs text-muted">
+              Waiting for live trades…
+            </div>
+          ) : (
+            <table className="w-full text-[11px]">
+              <thead className="sticky top-0 z-10 bg-surface">
+                <tr className="text-muted font-medium">
+                  <th className="text-left px-3 py-1 w-20">Time</th>
+                  <th className="text-right px-3 py-1">Price</th>
+                  <th className="text-right px-3 py-1">Size</th>
+                  <th className="text-left px-3 py-1 w-12">Side</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {trades.slice(0, 40).map((t, i) => (
+                  <tr key={`${t.time}-${i}`} className="border-b border-border/20 hover:bg-surface-hover transition-colors">
+                    <td className="px-3 py-0.5 text-muted tabular-nums">{fmtTime(t.time)}</td>
+                    <td className={`px-3 py-0.5 text-right tabular-nums font-medium ${t.side === "buy" ? "text-neon-green" : "text-neon-red"}`}>
+                      {fmtPrice(t.price)}
+                    </td>
+                    <td className="px-3 py-0.5 text-right tabular-nums text-foreground/80">{t.quantity.toFixed(4)}</td>
+                    <td className="px-3 py-0.5">
+                      <span className={`text-[9px] font-bold uppercase ${t.side === "buy" ? "text-neon-green" : "text-neon-red"}`}>
+                        {t.side}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

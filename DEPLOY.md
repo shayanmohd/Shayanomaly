@@ -1,16 +1,35 @@
-# Deploying Shayanomaly to DigitalOcean + Namecheap
+# Deploying Shayanomaly
 
-## Architecture
+## Option A — GitHub Pages (static, zero-cost, automatic)
+
+The default deployment. Every push to `main` triggers
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml): lint → typecheck →
+`next build` (static export) → GitHub Pages. The in-browser market engine talks
+directly to public exchange APIs, so no server is needed at all.
+
+Live at: **https://shayanmohd.github.io/Shayanomaly/**
+
+One-time setup (already done for this repo): *Settings → Pages → Source: GitHub Actions*.
+
+The rest of this document covers **Option B — full-stack self-hosting** with the
+Node backend engine (live Flashbots execution, Prisma persistence) on
+DigitalOcean + Namecheap.
+
+## Architecture (full-stack mode)
 
 ```
 [Browser] ──HTTPS──▸ [Nginx :443] ──▸ [Next.js :3000]
-                         │                   │
-                         │ /ws               │ /api/* (proxy)
-                         ▼                   ▼
-                   [Backend WS :8080]  [Backend HTTP :8081]
+                         │
+                         │ /ws
+                         ▼
+                   [Backend WS :8080] + [Backend HTTP :8081]
                          │
                    [SQLite / Prisma]
 ```
+
+The frontend consumes the backend stream when built with
+`NEXT_PUBLIC_WS_URL=wss://yourdomain.com/ws`; otherwise it falls back to the
+in-browser engine automatically.
 
 ---
 
@@ -93,8 +112,7 @@ Set these values:
 ```env
 NEXT_PUBLIC_WC_PROJECT_ID=your_real_walletconnect_id
 NEXT_PUBLIC_WS_URL=wss://yourdomain.com/ws
-NEXT_PUBLIC_APP_URL=https://yourdomain.com
-BACKEND_HTTP_URL=http://backend:8081
+NEXT_PUBLIC_SITE_URL=https://yourdomain.com
 ```
 
 ### Backend (.env)
@@ -158,7 +176,7 @@ cd /opt/shayanomaly
 cat > .env <<EOF
 NEXT_PUBLIC_WC_PROJECT_ID=your_walletconnect_project_id
 NEXT_PUBLIC_WS_URL=wss://yourdomain.com/ws
-NEXT_PUBLIC_APP_URL=https://yourdomain.com
+NEXT_PUBLIC_SITE_URL=https://yourdomain.com
 EOF
 
 # Build and start
@@ -174,8 +192,8 @@ docker compose logs -f
 ## 8. Verify Everything Works
 
 ```bash
-# Health check
-curl https://yourdomain.com/api/health
+# Check backend health (proxied via nginx)
+curl https://yourdomain.com/backend/health
 
 # Check backend directly
 curl http://localhost:8081/health

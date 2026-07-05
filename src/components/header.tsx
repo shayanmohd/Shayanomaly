@@ -1,41 +1,41 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Fuel, Globe, TrendingUp, Wifi, WifiOff } from "lucide-react";
-import { generateGlobalStats } from "@/lib/mock-data";
-import type { GlobalMarketStats } from "@/lib/types";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-
-const EMPTY_STATS: GlobalMarketStats = {
-  totalVolume24h: 0,
-  ethGasGwei: 0,
-  btcDominance: 0,
-  activeArbitrages: 0,
-  connectedExchanges: 0,
-};
+import { useMarketData } from "@/lib/market-engine";
 
 interface HeaderProps {
   wsConnected: boolean;
   livePrice: number;
   prevPrice: number;
+  selectedAsset?: string;
 }
 
-export default function Header({ wsConnected, livePrice, prevPrice }: HeaderProps) {
-  const [stats, setStats] = useState<GlobalMarketStats>(EMPTY_STATS);
+function fmtVolume(usd: number): string {
+  if (usd >= 1e12) return `$${(usd / 1e12).toFixed(2)}T`;
+  if (usd >= 1e9) return `$${(usd / 1e9).toFixed(1)}B`;
+  return `$${(usd / 1e6).toFixed(0)}M`;
+}
+
+export default function Header({ wsConnected, livePrice, prevPrice, selectedAsset = "ETH/USDT" }: HeaderProps) {
+  const { gasGwei, global } = useMarketData();
   const [clock, setClock] = useState("--:--:--");
-  const mounted = useRef(false);
 
   useEffect(() => {
-    if (!mounted.current) {
-      mounted.current = true;
-      setStats(generateGlobalStats());
-    }
-    const si = setInterval(() => setStats(generateGlobalStats()), 8_000);
     const tick = () =>
-      setClock(new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      setClock(
+        new Date().toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          timeZone: "UTC",
+        })
+      );
     tick();
     const ci = setInterval(tick, 1000);
-    return () => { clearInterval(si); clearInterval(ci); };
+    return () => clearInterval(ci);
   }, []);
 
   const up = livePrice >= prevPrice;
@@ -45,7 +45,7 @@ export default function Header({ wsConnected, livePrice, prevPrice }: HeaderProp
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           {wsConnected ? <Wifi className="w-3.5 h-3.5 text-neon-green" /> : <WifiOff className="w-3.5 h-3.5 text-muted" />}
-          <span className="text-xs text-muted font-medium">ETH/USDT</span>
+          <span className="text-xs text-muted font-medium">{selectedAsset}</span>
           {livePrice > 0 && (
             <span className={`text-sm font-bold tabular-nums ${up ? "text-neon-green" : "text-neon-red"}`}>
               ${livePrice.toFixed(2)}
@@ -55,9 +55,21 @@ export default function Header({ wsConnected, livePrice, prevPrice }: HeaderProp
       </div>
 
       <div className="hidden md:flex items-center gap-6">
-        <StatChip icon={<Globe className="w-3.5 h-3.5" />} label="24h Vol" value={stats.totalVolume24h > 0 ? `$${stats.totalVolume24h}B` : "—"} />
-        <StatChip icon={<Fuel className="w-3.5 h-3.5" />} label="Gas" value={stats.ethGasGwei > 0 ? `${stats.ethGasGwei} gwei` : "—"} />
-        <StatChip icon={<TrendingUp className="w-3.5 h-3.5" />} label="BTC.D" value={stats.btcDominance > 0 ? `${stats.btcDominance}%` : "—"} />
+        <StatChip
+          icon={<Globe className="w-3.5 h-3.5" />}
+          label="24h Vol"
+          value={global ? fmtVolume(global.totalVolumeUsd) : "—"}
+        />
+        <StatChip
+          icon={<Fuel className="w-3.5 h-3.5" />}
+          label="Gas"
+          value={gasGwei !== null ? `${gasGwei < 10 ? gasGwei.toFixed(2) : gasGwei.toFixed(1)} gwei` : "—"}
+        />
+        <StatChip
+          icon={<TrendingUp className="w-3.5 h-3.5" />}
+          label="BTC.D"
+          value={global ? `${global.btcDominance.toFixed(1)}%` : "—"}
+        />
       </div>
 
       <div className="flex items-center gap-3">

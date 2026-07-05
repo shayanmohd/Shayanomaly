@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   Settings,
   Eye,
@@ -63,17 +63,15 @@ function defaults() {
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("apis");
-  const [exchanges, setExchanges] = useState<Record<ExchangeName, ExchangeKeys>>(defaults().exchanges);
-  const [prefs, setPrefs] = useState<TradingPrefs>(defaults().prefs);
+  // Lazy init from localStorage — this page renders client-side only
+  // (behind the provider's hydration gate), so no SSR mismatch.
+  const [exchanges, setExchanges] = useState<Record<ExchangeName, ExchangeKeys>>(
+    () => loadSettings()?.exchanges ?? defaults().exchanges
+  );
+  const [prefs, setPrefs] = useState<TradingPrefs>(
+    () => loadSettings()?.prefs ?? defaults().prefs
+  );
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    const s = loadSettings();
-    if (s) {
-      if (s.exchanges) setExchanges(s.exchanges);
-      if (s.prefs) setPrefs(s.prefs);
-    }
-  }, []);
 
   const persistAll = useCallback(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ exchanges, prefs }));
@@ -158,12 +156,12 @@ function ExchangeAPIs({
     }));
   };
 
-  const verify = async (name: ExchangeName) => {
+  const saveLocally = async (name: ExchangeName) => {
     setExchanges((prev) => ({
       ...prev,
       [name]: { ...prev[name], status: "loading" },
     }));
-    await new Promise((r) => setTimeout(r, 1500));
+    await new Promise((r) => setTimeout(r, 400));
     setExchanges((prev) => ({
       ...prev,
       [name]: { ...prev[name], status: "connected" },
@@ -174,7 +172,20 @@ function ExchangeAPIs({
   return (
     <div>
       <h2 className="text-sm font-bold text-foreground mb-1">Exchange API Keys</h2>
-      <p className="text-xs text-muted mb-5">Connect your exchange accounts for live trading execution.</p>
+      <p className="text-xs text-muted mb-3">Configure exchange credentials for the self-hosted execution engine.</p>
+
+      <div className="bg-neon-yellow/5 border border-neon-yellow/20 rounded-lg p-3.5 flex gap-3 mb-5">
+        <ShieldCheck className="w-5 h-5 text-neon-yellow shrink-0 mt-0.5" />
+        <div>
+          <p className="text-xs text-neon-yellow font-semibold mb-0.5">Local-only demo storage</p>
+          <p className="text-[11px] text-muted leading-relaxed">
+            This hosted demo has no trading backend: anything entered here is saved to your
+            browser&apos;s localStorage only and is <strong className="text-foreground/80">never transmitted anywhere</strong>.
+            Even so, never paste real production API secrets into any website. Live execution
+            requires running the self-hosted backend with keys kept server-side.
+          </p>
+        </div>
+      </div>
 
       <div className="space-y-5">
         {EXCHANGES.map((name) => {
@@ -188,7 +199,7 @@ function ExchangeAPIs({
                 <h3 className="text-sm font-semibold text-foreground">{name}</h3>
                 {ex.status === "connected" && (
                   <span className="flex items-center gap-1.5 text-[10px] text-neon-green font-semibold bg-neon-green/10 border border-neon-green/20 rounded-full px-2.5 py-0.5">
-                    <CheckCircle2 className="w-3 h-3" /> Connected
+                    <CheckCircle2 className="w-3 h-3" /> Saved locally
                   </span>
                 )}
               </div>
@@ -199,6 +210,7 @@ function ExchangeAPIs({
                   <div className="relative">
                     <input
                       type={keyVis ? "text" : "password"}
+                      autoComplete="off"
                       value={ex.apiKey}
                       onChange={(e) => update(name, "apiKey", e.target.value)}
                       placeholder="Enter API key..."
@@ -219,6 +231,7 @@ function ExchangeAPIs({
                   <div className="relative">
                     <input
                       type={secVis ? "text" : "password"}
+                      autoComplete="off"
                       value={ex.apiSecret}
                       onChange={(e) => update(name, "apiSecret", e.target.value)}
                       placeholder="Enter API secret..."
@@ -236,16 +249,16 @@ function ExchangeAPIs({
               </div>
 
               <button
-                onClick={() => verify(name)}
+                onClick={() => saveLocally(name)}
                 disabled={ex.status === "loading" || !ex.apiKey || !ex.apiSecret}
                 className="px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20"
               >
                 {ex.status === "loading" ? (
                   <span className="flex items-center gap-1.5">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Verifying...
+                    <Loader2 className="w-3 h-3 animate-spin" /> Saving…
                   </span>
                 ) : (
-                  "Verify & Save"
+                  "Save locally"
                 )}
               </button>
             </div>

@@ -1,49 +1,16 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { Search, Radar, SlidersHorizontal, Wifi, WifiOff, ChevronDown, Loader2 } from "lucide-react";
-import { useArbitrageWs } from "@/hooks/use-arbitrage-ws";
+import { useState, useMemo } from "react";
+import { Search, Radar, SlidersHorizontal, Wifi, WifiOff, ChevronDown } from "lucide-react";
+import { useMarketData } from "@/lib/market-engine";
 import type { ArbitrageOpportunity } from "@/lib/types";
-
-interface AnomalyLogRow {
-  id: string;
-  timestamp: string; // ISO 8601 from Prisma DateTime
-  asset: string;
-  buyEx: string;
-  sellEx: string;
-  spread: number;
-  severity: string;
-}
 
 const DEX_EXCHANGES = new Set(["uniswap", "uniswap_v3", "sushiswap", "curve"]);
 const isCex = (ex: string) => !DEX_EXCHANGES.has(ex.toLowerCase());
 const isDex = (ex: string) => DEX_EXCHANGES.has(ex.toLowerCase());
 
-const MOCK_DATA: ArbitrageOpportunity[] = [
-  { id: "m1", asset: "ETH/USDT", buyExchange: "binance", buyPrice: 3842.1, sellExchange: "kraken", sellPrice: 3849.7, spreadPercent: 0.198, volume: 42.5, timestamp: Date.now() - 3000 },
-  { id: "m2", asset: "BTC/USDT", buyExchange: "coinbase", buyPrice: 97240.0, sellExchange: "binance", sellPrice: 97415.0, spreadPercent: 0.18, volume: 1.2, timestamp: Date.now() - 5000 },
-  { id: "m3", asset: "ETH/USDT", buyExchange: "uniswap_v3", buyPrice: 3838.4, sellExchange: "binance", sellPrice: 3848.9, spreadPercent: 0.274, volume: 18.3, timestamp: Date.now() - 1200 },
-  { id: "m4", asset: "SOL/USDT", buyExchange: "kraken", buyPrice: 186.3, sellExchange: "coinbase", sellPrice: 188.6, spreadPercent: 1.234, volume: 310, timestamp: Date.now() - 800 },
-  { id: "m5", asset: "ARB/USDT", buyExchange: "binance", buyPrice: 1.082, sellExchange: "uniswap_v3", sellPrice: 1.098, spreadPercent: 1.479, volume: 15200, timestamp: Date.now() - 2200 },
-  { id: "m6", asset: "LINK/USDT", buyExchange: "coinbase", buyPrice: 18.42, sellExchange: "kraken", sellPrice: 18.49, spreadPercent: 0.38, volume: 620, timestamp: Date.now() - 4500 },
-  { id: "m7", asset: "MATIC/USDT", buyExchange: "binance", buyPrice: 0.5821, sellExchange: "uniswap_v3", sellPrice: 0.5912, spreadPercent: 1.563, volume: 45000, timestamp: Date.now() - 1500 },
-  { id: "m8", asset: "AVAX/USDT", buyExchange: "kraken", buyPrice: 38.14, sellExchange: "coinbase", sellPrice: 38.29, spreadPercent: 0.393, volume: 280, timestamp: Date.now() - 6000 },
-];
-
-function mapAnomalyToOpportunity(log: AnomalyLogRow): ArbitrageOpportunity {
-  return {
-    id: log.id,
-    asset: log.asset,
-    buyExchange: log.buyEx,
-    sellExchange: log.sellEx,
-    buyPrice: 0,   // not stored in anomaly log
-    sellPrice: 0,  // not stored in anomaly log
-    spreadPercent: log.spread,
-    volume: 0,     // not stored in anomaly log
-    timestamp: new Date(log.timestamp).getTime(),
-  };
-}
-
+// Rough on-chain gas cost when a DEX leg is involved (self-hosted backend
+// mode streams Uniswap routes; the browser engine covers CEX venues only).
 const GAS_ESTIMATE: Record<string, number> = { cex_cex: 0.0, cex_dex: 4.2, dex_dex: 8.1 };
 
 function estimateGas(buy: string, sell: string): number {
@@ -53,10 +20,11 @@ function estimateGas(buy: string, sell: string): number {
   return GAS_ESTIMATE.cex_cex;
 }
 
+// Net per $1k notional after 0.1% taker fees on both legs and gas.
 function netProfit(row: ArbitrageOpportunity, gas: number): number {
-  if (row.buyPrice === 0 || row.sellPrice === 0) return 0; // historical — no price data
-  const gross = (row.sellPrice - row.buyPrice) * Math.min(row.volume, 1);
-  return Math.max(gross - gas, 0);
+  if (row.buyPrice === 0 || row.sellPrice === 0) return 0;
+  const gross = 1000 * (row.spreadPercent / 100);
+  return gross - 2.0 - gas;
 }
 
 function fmtTime(ts: number): string {
@@ -66,53 +34,31 @@ function fmtTime(ts: number): string {
 type ExchangeFilter = "all" | "cex" | "dex";
 
 export default function ScannerPage() {
-  const { opportunities, connected } = useArbitrageWs();
-
-  const [historicalData, setHistoricalData] = useState<ArbitrageOpportunity[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(true);
-
-  const fetchHistory = useCallback(async () => {
-    try {
-      const res = await fetch("/api/history/anomalies");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json() as { ok: boolean; data: AnomalyLogRow[] };
-      if (json.ok && Array.isArray(json.data)) {
-        setHistoricalData(json.data.map(mapAnomalyToOpportunity));
-      }
-    } catch (err) {
-      console.warn("[scanner] Failed to fetch history:", err);
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+  const { opportunities, history, live, backendConnected } = useMarketData();
 
   const mergedData = useMemo(() => {
-    const liveMap = new Map<string, ArbitrageOpportunity>();
-    for (const opp of opportunities) liveMap.set(opp.id, opp);
-    for (const hist of historicalData) {
-      if (!liveMap.has(hist.id)) liveMap.set(hist.id, hist);
+    const rows: ArbitrageOpportunity[] = [...opportunities];
+    // Route keys from display labels on both sides so live/history compare equal.
+    const liveRoutes = new Set(
+      opportunities.map((o) => `${o.asset}:${o.buyExchange}>${o.sellExchange}`)
+    );
+    for (const h of history) {
+      // Skip history rows whose route is currently shown live at ~the same spread.
+      if (liveRoutes.has(`${h.asset}:${h.buyExchange}>${h.sellExchange}`)) continue;
+      rows.push({
+        id: h.id,
+        asset: h.asset,
+        buyExchange: h.buyExchange,
+        sellExchange: h.sellExchange,
+        buyPrice: h.buyPrice,
+        sellPrice: h.sellPrice,
+        spreadPercent: h.spreadPercent,
+        volume: 0,
+        timestamp: h.ts,
+      });
     }
-
-    return Array.from(liveMap.values()).sort((a, b) => b.timestamp - a.timestamp);
-  }, [opportunities, historicalData]);
-
-  const [useMock, setUseMock] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (mergedData.length > 0 || historyLoading) {
-      setUseMock(false);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = null;
-    } else if (!timerRef.current) {
-      timerRef.current = setTimeout(() => setUseMock(true), 4000);
-    }
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [mergedData, historyLoading]);
-
-  const rows = useMock ? MOCK_DATA : mergedData;
+    return rows.sort((a, b) => b.timestamp - a.timestamp);
+  }, [opportunities, history]);
 
   const [search, setSearch] = useState("");
   const [minSpread, setMinSpread] = useState(0);
@@ -121,14 +67,14 @@ export default function ScannerPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((r) => {
+    return mergedData.filter((r) => {
       if (q && !r.asset.toLowerCase().includes(q) && !r.buyExchange.toLowerCase().includes(q) && !r.sellExchange.toLowerCase().includes(q)) return false;
-      if (r.spreadPercent < minSpread) return false;
+      if (minSpread > 0 && r.spreadPercent < minSpread) return false;
       if (exchFilter === "cex" && !(isCex(r.buyExchange) && isCex(r.sellExchange))) return false;
       if (exchFilter === "dex" && !(isDex(r.buyExchange) || isDex(r.sellExchange))) return false;
       return true;
     });
-  }, [rows, search, minSpread, exchFilter]);
+  }, [mergedData, search, minSpread, exchFilter]);
 
   const maxSpread = filtered.length ? Math.max(...filtered.map((r) => r.spreadPercent)) : 0;
   const avgSpread = filtered.length ? filtered.reduce((s, r) => s + r.spreadPercent, 0) / filtered.length : 0;
@@ -145,7 +91,10 @@ export default function ScannerPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-foreground">Arbitrage Scanner</h1>
-            <p className="text-xs text-muted">Real-time cross-venue spread detection</p>
+            <p className="text-xs text-muted">
+              Real-time cross-venue spread detection
+              {backendConnected ? " — backend engine" : " — 5 exchange feeds, in-browser"}
+            </p>
           </div>
         </div>
 
@@ -159,15 +108,9 @@ export default function ScannerPage() {
           </div>
 
           {/* connection badge */}
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${connected ? "bg-neon-green/10 text-neon-green" : "bg-neon-red/10 text-neon-red"}`}>
-            {historyLoading ? (
-              <Loader2 className="w-3 h-3 animate-spin" />
-            ) : connected ? (
-              <Wifi className="w-3 h-3" />
-            ) : (
-              <WifiOff className="w-3 h-3" />
-            )}
-            {historyLoading ? "LOADING" : connected ? "LIVE" : useMock ? "MOCK" : "OFFLINE"}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${live ? "bg-neon-green/10 text-neon-green" : "bg-neon-red/10 text-neon-red"}`}>
+            {live ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+            {live ? "LIVE" : "CONNECTING"}
           </div>
         </div>
       </div>
@@ -203,8 +146,8 @@ export default function ScannerPage() {
           <input
             type="range"
             min={0}
-            max={3}
-            step={0.05}
+            max={1}
+            step={0.01}
             value={minSpread}
             onChange={(e) => setMinSpread(parseFloat(e.target.value))}
             className="w-24 accent-accent h-1 cursor-pointer"
@@ -249,33 +192,22 @@ export default function ScannerPage() {
                 <th className="text-right text-muted font-medium px-3 py-2.5 whitespace-nowrap">Sell Price</th>
                 <th className="text-right text-muted font-medium px-3 py-2.5 whitespace-nowrap">Spread %</th>
                 <th className="text-right text-muted font-medium px-3 py-2.5 whitespace-nowrap">Est. Gas</th>
-                <th className="text-right text-muted font-medium px-3 py-2.5 whitespace-nowrap">Net Profit</th>
+                <th className="text-right text-muted font-medium px-3 py-2.5 whitespace-nowrap" title="Net per $1k notional after fees and gas">Net /$1k</th>
               </tr>
             </thead>
             <tbody>
-              {historyLoading && filtered.length === 0 ? (
-                /* Skeleton loading rows */
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={`skel-${i}`} className="border-b border-border/50">
-                    {Array.from({ length: 9 }).map((_, j) => (
-                      <td key={j} className="px-3 py-2">
-                        <div className="h-3 rounded bg-surface-hover animate-pulse" style={{ width: j === 0 ? 64 : j < 4 ? 80 : 56 }} />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : filtered.length === 0 ? (
+              {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="text-center py-16 text-muted">
-                    {rows.length === 0 ? "Waiting for data stream…" : "No opportunities match current filters"}
+                    {mergedData.length === 0 ? "Connecting to exchange feeds…" : "No opportunities match current filters"}
                   </td>
                 </tr>
               ) : (
                 filtered.map((r) => {
                   const gas = estimateGas(r.buyExchange, r.sellExchange);
                   const profit = netProfit(r, gas);
-                  const hot = r.spreadPercent >= 1;
-                  const warm = r.spreadPercent >= 0.5 && r.spreadPercent < 1;
+                  const hot = r.spreadPercent >= 0.5;
+                  const warm = r.spreadPercent >= 0.15 && r.spreadPercent < 0.5;
                   return (
                     <tr
                       key={r.id}
@@ -298,7 +230,7 @@ export default function ScannerPage() {
                       </td>
                       <td className="px-3 py-2 text-right text-muted tabular-nums">{gas > 0 ? `$${gas.toFixed(2)}` : "—"}</td>
                       <td className={`px-3 py-2 text-right tabular-nums font-medium ${profit > 0 ? "text-neon-green" : "text-muted"}`}>
-                        {profit > 0 ? `$${profit.toFixed(2)}` : "—"}
+                        {profit > 0 ? `+$${profit.toFixed(2)}` : `-$${Math.abs(profit).toFixed(2)}`}
                       </td>
                     </tr>
                   );
@@ -310,8 +242,13 @@ export default function ScannerPage() {
 
         {/* footer */}
         <div className="border-t border-border px-3 py-2 flex items-center justify-between text-xs text-muted">
-          <span>{filtered.length} of {rows.length} opportunities shown{historicalData.length > 0 && !useMock ? ` (${historicalData.length} historical)` : ""}</span>
-          {useMock && <span className="text-neon-yellow">Using simulated data — backend offline</span>}
+          <span>
+            {filtered.length} of {mergedData.length} rows shown
+            {history.length > 0 ? ` (${history.length} historical, stored locally)` : ""}
+          </span>
+          <span className="text-muted/70">
+            Spreads ≥0.15% are archived to your browser&apos;s local storage
+          </span>
         </div>
       </div>
     </div>
@@ -322,6 +259,8 @@ const EXCH_COLORS: Record<string, string> = {
   binance: "text-neon-yellow",
   kraken: "text-neon-purple",
   coinbase: "text-neon-blue",
+  okx: "text-foreground",
+  bybit: "text-neon-yellow",
   uniswap_v3: "text-neon-green",
   uniswap: "text-neon-green",
   sushiswap: "text-neon-red",

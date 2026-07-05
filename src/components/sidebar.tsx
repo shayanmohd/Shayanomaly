@@ -11,6 +11,8 @@ import {
   Settings,
   Radio,
 } from "lucide-react";
+import { useMarketData } from "@/lib/market-engine";
+import { EXCHANGE_IDS } from "@/lib/exchanges";
 
 const NAV_ITEMS = [
   { icon: BarChart3, label: "Dashboard", href: "/" },
@@ -23,6 +25,9 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { feeds, backendConnected } = useMarketData();
+  const feedsUp = EXCHANGE_IDS.filter((e) => feeds[e] === "up").length;
+  const anyUp = feedsUp > 0 || backendConnected;
 
   return (
     <aside className="w-16 lg:w-56 h-screen flex flex-col bg-surface border-r border-border shrink-0">
@@ -55,9 +60,11 @@ export default function Sidebar() {
 
       <div className="p-4 border-t border-border">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-neon-green animate-pulse-neon" />
+          <div className={`w-2 h-2 rounded-full animate-pulse-neon ${anyUp ? "bg-neon-green" : "bg-neon-yellow"}`} />
           <span className="hidden lg:block text-xs text-muted">
-            14 feeds active
+            {backendConnected
+              ? "backend engine live"
+              : `${feedsUp}/${EXCHANGE_IDS.length} exchange feeds live`}
           </span>
         </div>
       </div>

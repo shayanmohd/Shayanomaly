@@ -13,11 +13,14 @@ COPY . .
 # Build-time env vars (these get baked into the client bundle)
 ARG NEXT_PUBLIC_WC_PROJECT_ID
 ARG NEXT_PUBLIC_WS_URL
-ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_SITE_URL
 
 ENV NEXT_PUBLIC_WC_PROJECT_ID=$NEXT_PUBLIC_WC_PROJECT_ID
 ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
-ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+
+# Produce the standalone server build (default build target is static export)
+ENV BUILD_TARGET=node
 
 RUN npm run build
 

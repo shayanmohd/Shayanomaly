@@ -12,10 +12,10 @@ const SEVERITY = {
 
 interface AnomalyFeedProps {
   events: AnomalyEvent[];
-  backendConnected: boolean;
+  live: boolean;
 }
 
-export default function AnomalyFeed({ events, backendConnected }: AnomalyFeedProps) {
+export default function AnomalyFeed({ events, live }: AnomalyFeedProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [events.length]);
@@ -31,16 +31,21 @@ export default function AnomalyFeed({ events, backendConnected }: AnomalyFeedPro
           <h3 className="text-sm font-semibold text-foreground">Anomaly Feed</h3>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className={`w-1.5 h-1.5 rounded-full animate-pulse-neon ${backendConnected ? "bg-neon-green" : "bg-neon-red"}`} />
-          <span className={`text-[10px] font-medium ${backendConnected ? "text-neon-green" : "text-muted"}`}>
-            {backendConnected ? "LIVE" : "OFFLINE"}
+          <div className={`w-1.5 h-1.5 rounded-full animate-pulse-neon ${live ? "bg-neon-green" : "bg-neon-red"}`} />
+          <span className={`text-[10px] font-medium ${live ? "text-neon-green" : "text-muted"}`}>
+            {live ? "LIVE" : "CONNECTING"}
           </span>
         </div>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-auto min-h-0 space-y-1 font-mono">
+        {events.length === 0 && (
+          <div className="h-full flex items-center justify-center text-xs text-muted font-sans">
+            Watching for market anomalies…
+          </div>
+        )}
         {events.map((event) => {
-          const cfg = SEVERITY[event.severity];
+          const cfg = SEVERITY[event.severity] ?? SEVERITY.info;
           const Icon = cfg.icon;
           return (
             <div key={event.id} className={`flex items-start gap-2 px-2 py-1.5 rounded-sm border-l-2 ${cfg.bg} ${cfg.border} animate-fade-in`}>
